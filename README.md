@@ -560,23 +560,21 @@ As três funções seguintes operam sobre variáveis internas do driver, evitand
 
 As funções deste grupo são responsáveis por organizar os parâmetros recebidos e empacotá-los junto ao opcode em uma palavra de 32 bits conforme a ISA do coprocessador antes de enviá-la para o coprocessador. Estas funções têm `0` como retorno em caso de sucesso e `-1` em caso de falha, valores definidos na função `enviar_instrucao`.
 
-| Função | Instrução | Parâmetros | Observação |
+| Função | Instrução | Parâmetros | Descrição |
 |---|---|---|---|
-| `clear_status` | `CLST` | — | — |
-| `noop` | `NOOP` | — | — |
-| `bscroll` | `BSCROLL` | Deslocamentos horizontal `x`, Deslocamentos vertical `y` | — |
-| `btile` | `BTILE` | Endereço de memória `end`, Cor do pixel do tile `cor` | — |
-| `possp` | `POSSP` | ID do sprite `id`, Posição horizontal `x`, Posição vertical `y` | — | 
-| `atsp` | `ATSP` |  ID do sprite `id`, Condição de flip `flip`, Condição de visibilidade `show` | Atualiza a máscara de sprites ativos |
-| `wrsp` | `WRSP` | Endereço de memória `end`, Cor do pixel do sprite `cor` | — |
-| `rgsp` | `RGSP` | ID do sprite `id`, Slot de memória `slot` | — |
-| `atpo` | `ATPO` | Condição de flip `flip`, ID do polígono`id`, Condição de visibilidade `show`, Tipo de polígno `tipo` | Atualiza a máscara de polígonos ativos |
-| `tampo` | `TAMPO` | ID do polígono `id`, Largura `larg`, Altura `alt` | — |
-| `pospo` | `POSPO` | ID do polígono `id`, Posição horizontal `x`, Posição vertical `y` | — |
-| `corpo` | `CORPO` | ID do polígono `id`, Cor do polígono `cor` | — |
-| `prior` | `PRIOR` |  Prioridade `p` | — |
-
-> Essas rotinas realizam as ações definidas pela ISA.
+| `clear_status` | `CLST` | — | Limpa as flags de erro e aviso |
+| `noop` | `NOOP` | — | Fecha o quadro |
+| `bscroll` | `BSCROLL` | Deslocamentos horizontal `x`, Deslocamentos vertical `y` | Define o deslocamento do background |
+| `btile` | `BTILE` | Endereço de memória `end`, Cor do pixel do tile `cor` | Escreve um pixel do background na RAM de vídeo |
+| `possp` | `POSSP` | ID do sprite `id`, Posição horizontal `x`, Posição vertical `y` | Define a posição do sprite | 
+| `atsp` | `ATSP` |  ID do sprite `id`, Condição de flip `flip`, Condição de visibilidade `show` | Define os atributos do sprite e atualiza a máscara de sprites ativos |
+| `wrsp` | `WRSP` | Endereço de memória `end`, Cor do pixel do sprite `cor` | Escreve um pixel de um padrão de sprite na RAM de sprites |
+| `rgsp` | `RGSP` | ID do sprite `id`, Slot de memória `slot` | Associa um sprite a um padrão da RAM |
+| `atpo` | `ATPO` | Condição de flip `flip`, ID do polígono`id`, Condição de visibilidade `show`, Tipo de polígno `tipo` | Define os atributos do polígono e atualiza a máscara de polígonos ativos |
+| `tampo` | `TAMPO` | ID do polígono `id`, Largura `larg`, Altura `alt` | Define o tamanho do polígono |
+| `pospo` | `POSPO` | ID do polígono `id`, Posição horizontal `x`, Posição vertical `y` | Define a posição do polígono |
+| `corpo` | `CORPO` | ID do polígono `id`, Cor do polígono `cor` | Define a cor do polígono |
+| `prior` | `PRIOR` |  Prioridade `p` | Define a prioridade entre camadas |
 
 ## 3.2.4. Funções de Comunicação e Sincronização (Handshake)
 
@@ -912,20 +910,7 @@ typedef struct {
 
 #### Driver Assembly (`libAssembly.S`), usadas pelo jogo
 
-| Função | Descrição |
-|---|---|
-| `gpu_init()` / `gpu_close()` | Mapeia/libera o acesso MMIO ao coprocessador |
-| `btile(end, cor)` | Escreve um pixel do background na RAM de vídeo |
-| `bscroll(x, y)` | Define o deslocamento do background |
-| `wrsp(end, cor)` | Escreve um pixel de um padrão de sprite na RAM de sprites |
-| `rgsp(id, slot)` | Associa um sprite a um padrão da RAM |
-| `possp(id, x, y)` / `atsp(id, flip, show)` | Posição e atributos do sprite (espelhamento, visibilidade) |
-| `pospo(id, x, y)` / `tampo(id, larg, alt)` / `corpo(id, cor)` / `atpo(flip, id, show, tipo)` | Posição, tamanho, cor e tipo/atributos do polígono |
-| `prior(p)` | Prioridade entre camadas |
-| `noop()` | Fecha o quadro |
-| `clear_status()` | Limpa as flags de erro e aviso |
-| `status()`, `busy()`, `fifo_full()`, `fifo_empty()`, `error()`, `warning()`, `frame_counter()` | Consulta do estado do hardware |
-| `obter_e_zerar_instrucoes()`, `obter_mascara_sprites_ativos()`, `obter_mascara_poligonos_ativos()` | Contadores e máscaras usados nas métricas |
+As funções definidas no driver em Assembly são utilizadas pelo jogo em C para construção dos cenários e funcionamento do jogo. Cada função deve ser declarada como externa e com os parâmetros necessários, assim, ela realiza a rotina definida no Assembly. Vale destacar que as funções respeitam a convenção de chamadas padrão do ARM (AAPCS), o que garante que os parâmetros passados pelo C cheguem nos registradores corretos, ou seja, parâmetro 1 em `r0`,  parâmetro 2 em `r1`,  etc.
 
 #### Aplicação em C
 
