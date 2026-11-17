@@ -221,16 +221,16 @@ Para eliminar a violação de *timing* sem reduzir o número de polígonos nem c
    * Ao ser atualizado pelas instruções `POSPO`, `ATPO`, `TAMPO` ou `CORPO`, o módulo altera apenas a fatia de bits correspondente ao `ID` endereçado, preservando os demais atributos.  
 2. **Estágio Estático (Pré-Cálculo de Vértices e Coeficientes de Aresta):**
 
-   * **Motivação:** Os vértices ($A,B,C$) e os vetores das arestas de um polígono dependem exclusivamente da sua configuração no banco de registradores (alterada poucas vezes por quadro pela CPU), e **não** da coordenada do pixel atual. Recalculá-los a cada pixel desperdiçava atraso combinacional na entrada dos multiplicadores.  
-   * **Implementação e Registradores:** Um bloco combinacional resolve o `case` de `tipo` $\times$ `flip` para encontrar os três vértices $(vx\_a,vy\_a)$, $(bx,by)$ e $(cx,cy)$ dentro da caixa delimitadora $[{A}_{x},{A}_{x}+W]\times [{A}_{y},{A}_{y}+H]$, e pré-calcula os deltas constantes das três arestas (${a}_{1}={B}_{x}-{A}_{x}$, ${b}_{1}={B}_{y}-{A}_{y}$, ${a}_{2}={C}_{x}-{B}_{x}$, ${b}_{2}={C}_{y}-{B}_{y}$, ${a}_{3}={A}_{x}-{C}_{x}$, ${b}_{3}={A}_{y}-{C}_{y}$) e os limites máximos ($ax+w$, $ay+h$, $ay+w$). Esses valores são amostrados em registradores intermediários dedicados (`r_vx`, `r_vy`, `r_bx`, `r_by`, `r_cx`, `r_cy`, `r_a1..r_b3`, `r_axw`, `r_ayh`, `r_ayw`, `r_show`, `r_tipo`), entregando operandos limpos e livres de multiplexação diretamente às entradas dos blocos DSP.  
+   * **Motivação:** Os vértices ($A,B,C$) e os vetores das arestas de um polígono dependem exclusivamente da sua configuração no banco de registradores (alterada poucas vezes por quadro pela CPU), e **não** da coordenada do pixel atual. Recalculá-los a cada pixel desperdiçava atraso combinacional na entrada dos multiplicadores.
+   * **Implementação e Registradores:** Um bloco combinacional resolve o `case` de `tipo × flip` para encontrar os três vértices `(vx_a, vy_a)`, `(bx, by)` e `(cx, cy)` dentro da caixa delimitadora `[A_x, A_x + W] × [A_y, A_y + H]`, e pré-calcula os deltas constantes das três arestas (`a1 = B_x - A_x`, `b1 = B_y - A_y`, `a2 = C_x - B_x`, `b2 = C_y - B_y`, `a3 = A_x - C_x`, `b3 = A_y - C_y`) e os limites máximos (`ax + w`, `ay + h`, `ay + w`). Esses valores são amostrados em registradores intermediários dedicados (`r_vx`, `r_vy`, `r_bx`, `r_by`, `r_cx`, `r_cy`, `r_a1..r_b3`, `r_axw`, `r_ayh`, `r_ayw`, `r_show`, `r_tipo`), entregando operandos limpos e livres de multiplexação diretamente às entradas dos blocos DSP.
 3. **Pipeline Dinâmico por Pixel (`S0` a `S4` — 20 ns por estágio):**
 
 | Estágio | Registradores Intermediários | Operação Executada no Ciclo (50 MHz) | Ganho de Timing e Sincronismo |
-| :---: | :---- | :---- | :---- |
+| :---: | :--- | :--- | :--- |
 | **`S0`** | `s0_x[8:0]`, `s0_y[7:0]` | Calcula a coordenada espacial adiantada em **2 pixels à frente** (`la_x`, `la_y`), tratando o *wrap-around* horizontal (`>= 320`) e vertical (`== 239`), e registra o pixel convertido para aritmética com sinal (`px`, `py` de 12 bits). | Isola a lógica de incremento e quebra de linha em um ciclo próprio, entregando coordenadas estabilizadas para os 16 circuitos paralelos. |
-| **`S1`** | `m1a..m3b` (`signed [23:0]`),<br>`ret1`, `qua1` (`1 bit`) | Executa em paralelo nas **87 unidades DSP** da FPGA os 6 produtos vetoriais de cada triângulo (${a}_{1}({P}_{y}-{V}_{y})$, ${b}_{1}({P}_{x}-{V}_{x})$, etc.) e avalia as comparações de *bounding box* para Retângulos (`ret1`) e Quadrados (`qua1`). | Dedica um período inteiro de 20 ns exclusivamente aos multiplicadores DSP, eliminando o gargalo crítico de 25,8 ns. |
-| **`S2`** | `tri2`, `ret2`, `qua2` (`1 bit`) | Efetua as subtrações de 24 bits das equações de semiplano (${e}_{1}={m}_{1a}-{m}_{1b}$, ${e}_{2}={m}_{2a}-{m}_{2b}$, ${e}_{3}={m}_{3a}-{m}_{3b}$) e verifica a consistência de sinal em ambos os sentidos de rotação: \`((e1\<=0 && e2\<=0 && e3\<=0) |  |
-| **`S3`** | `dentro_q` (`1 bit` $\times$ 16\) | Combina a flag de visibilidade `r_show` com a forma geométrica selecionada por `r_tipo` (`0` $\rightarrow$ `ret2`, `1` $\rightarrow$ `qua2`, `2..4` $\rightarrow$ `tri2`), consolidando o barramento global `dentro[15:0]`. | Comprime toda a avaliação geométrica de cada polígono em um único bit registrado antes da etapa de arbitragem. |
+| **`S1`** | `m1a..m3b` (`signed [23:0]`),<br>`ret1`, `qua1` (`1 bit`) | Executa em paralelo nas **87 unidades DSP** da FPGA os 6 produtos vetoriais de cada triângulo (`a1 * (P_y - V_y)`, `b1 * (P_x - V_x)`, etc.) e avalia as comparações de *bounding box* para Retângulos (`ret1`) e Quadrados (`qua1`). | Dedica um período inteiro de 20 ns exclusivamente aos multiplicadores DSP, eliminando o gargalo crítico de 25,8 ns. |
+| **`S2`** | `tri2`, `ret2`, `qua2` (`1 bit`) | Efetua as subtrações de 24 bits das equações de semiplano (`e1 = m1a - m1b`, `e2 = m2a - m2b`, `e3 = m3a - m3b`) e verifica a consistência de sinal em ambos os sentidos de rotação: `((e1 <= 0 && e2 <= 0 && e3 <= 0) \|\| (e1 >= 0 && e2 >= 0 && e3 >= 0))`. Propaga `ret1` e `qua1` para manter o alinhamento temporal. | Separa a rede de subtratores de 24 bits e comparadores de zero da saída direta dos multiplicadores DSP. |
+| **`S3`** | `dentro_q` (`1 bit × 16`) | Combina a flag de visibilidade `r_show` com a forma geométrica selecionada por `r_tipo` (`0 → ret2`, `1 → qua2`, `2..4 → tri2`), consolidando o barramento global `dentro[15:0]`. | Comprime toda a avaliação geométrica de cada polígono em um único bit registrado antes da etapa de arbitragem. |
 | **`S4`** | `hit_reg` (`1 bit`),<br>`cor_reg[7:0]` | Um codificador de prioridade varre `dentro[15:0]` do índice 15 até 0 (garantindo precedência ao menor `ID`: `0 > 1 > ... > 15`), define `poly_sel[3:0]` e seleciona a cor correspondente em um multiplexador direto 16:1 (`cores_flat`), registrando `hit_reg` e `cor_reg`. | Substitui a antiga indexação aritmética (`poly_sel * 50 + 34`) por um barramento plano pré-fatiado (`cores_flat[127:0]`). |
 
 ### Compensação de Latência: O Mecanismo de *Lookahead* Espacial (`LOOKAHEAD = 2`)
@@ -252,9 +252,9 @@ Como a varredura do Compositor é estritamente determinística e sequencial, o e
   </figure>
 </div>
 
-Observe a Figura 1 acima. Enquanto os estágios internos (`S0` a `S3`) processam os dados a **50 MHz** (20 ns por etapa), a saída final (`S4`) retém o resultado por 40 ns para acompanhar o ritmo do Compositor, que opera a 25 MHz e amostra a cor pronta nos instantes indicados pelas setas.
-
 <br>
+
+Observe a Figura 1 acima. Enquanto os estágios internos (`S0` a `S3`) processam os dados a **50 MHz** (20 ns por etapa), a saída final (`S4`) retém o resultado por 40 ns para acompanhar o ritmo do Compositor, que opera a 25 MHz e amostra a cor pronta nos instantes indicados pelas setas.
 
 ## 2.1.4. Unidade de Controle
 
@@ -490,7 +490,7 @@ A tabela abaixo isola o custo de área e memória de cada módulo customizado em
 
 Após o particionamento do `rasterizadorPoligonos` em 5 estágios de pipeline e o pré-cálculo estático dos vértices, o projeto atingiu fechamento de *timing* com folga positiva (*slack* positivo) em todos os domínios de clock da FPGA:
 
-| Domínio de Clock | Frequência Alvo | Período | Antes (Combinacional)<br>${F}_{\max\limits_{}}$ / Folga | Depois (Pipeline 5 Estágios)<br>${F}_{\max\limits_{}}$ / Folga | Impacto no Hardware |
+| Domínio de Clock | Frequência Alvo | Período | Antes (Combinacional)<br>F<sub>max</sub> / Folga | Depois (Pipeline 5 Estágios)<br>F<sub>max</sub> / Folga | Impacto no Hardware |
 | :---- | :---: | :---: | :---: | :---: | :---- |
 | **`clock_50_2` (`CLOCK2_50`)** | 50,00 MHz | 20,00 ns | **38,69 MHz** *(25,85 ns)*<br>**Slack: `-5,85 ns` (Violação)** | **61,53 MHz** *(16,25 ns)*<br>**Slack: `+3,75 ns` (Fechado)** | Ganho de **\+59,0%** na frequência máxima; elimina amostragem instável nos DSPs e *glitches* no VGA. |
 | **`clock_50_1` (`CLOCK_50`)** | 50,00 MHz | 20,00 ns | **91,65 MHz** *(10,91 ns)*<br>Slack: `+9,09 ns` | **88,91 MHz** *(11,25 ns)*<br>Slack: `+8,75 ns` | Clock da ponte *Lightweight HPS-to-FPGA* e barramentos Avalon-MM (estável em ambas). |
@@ -1053,7 +1053,7 @@ Os registros coletados durante o funcionamento do jogo mostram **três cenários
 
 A análise conjunta dos testes de bancada e da telemetria em tempo real mostra que a divisão de tarefas entre o processador ARM (HPS) e o coprocessador na FPGA atende com folga aos requisitos de tempo real do jogo, desde que o tráfego de dados pela ponte MMIO seja bem gerenciado.
 
-## 6.4.1. Balanço entre Processamento Gráfico (FPGA) e Barramento (ARM $\leftrightarrow$ FPGA)
+## 6.4.1. Balanço entre Processamento Gráfico (FPGA) e Barramento (ARM -> FPGA)
 
 * **Poder de Desenho do Coprocessador:** O varredor lógico interno preenche os $76.800\text{ pixels}$ ($320 \times 240$) do *Back Buffer* em exatos $76.800$ ciclos do clock de $25\text{ MHz}$, o que leva **$3,072\text{ ms}$** por quadro. Como o monitor VGA a $60\text{ Hz}$ oferece **$16,67\text{ ms}$** por quadro, a FPGA conclui toda a composição visual em menos de 19% do tempo disponível, garantindo taxa fixa de 60 FPS e ausência de cortes na imagem graças ao *Double Buffering* sincronizado no `VSYNC`.
 * **Orçamento da Ponte MMIO:** O protocolo de *handshake* de 4 fases apresenta mediana de **$2,30\text{ }\mu\text{s}$** por instrução (vazão máxima de $\sim 415.000\text{ instr/s}$ em rajada), permitindo enviar até **$\sim 6.144$ instruções por quadro** sem estourar o limite de $16,67\text{ ms}$.
@@ -1113,7 +1113,7 @@ No planejamento inicial do projeto, a câmera do jogo deveria acompanhar continu
 No terminal do seu computador, clone o repositório do projeto:
 
 ```sh
-git clone https://github.com/AnaluzLima/Graphics-Coprocessor-for-DE1-SoC-in-Verilog.git
+git clone https://github.com/AnaluzLima/development-of-a-graphics-coprocessor-and-an-embedded-game-application
 ```
 
 ## 2\. Compilação e Gravação na FPGA (Quartus Prime)
