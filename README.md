@@ -507,7 +507,7 @@ O driver em Assembly ARMv7-A (32 bits) implementa a camada de comunicação via 
 
 # 3.1. Mapeamento de Memória (MMIO) 
 
-O Linux executa as aplicações com memória virtual, então o driver não pode acessar diretamente o endereço físico da ponte Lightweight HPS-to-FPGA. Para isso, ele abre o dispositivo `/dev/mem` com as flags `O_RDWR` e `O_SYNC` e usa a syscall `mmap2` para mapear uma região de 2 MB a partir do endereço físico 0xFF200000, armazenando o ponteiro virtual na variável global `ptr_base`. Como os PIOs são registradores de hardware, cujos valores podem mudar a qualquer momento por ação da FPGA, o acesso é feito sem passar pelo cache, de modo que cada leitura e escrita chega diretamente ao registrador e o processador não lê valores desatualizados. Cada PIO é acessado somando-se o seu *offset* (descritos na seção 2.3.1) ao ponteiro base.
+O Linux executa as aplicações com memória virtual, então o driver não pode acessar diretamente o endereço físico da ponte Lightweight HPS-to-FPGA. Para isso, ele abre o dispositivo `/dev/mem` com as flags `O_RDWR` e `O_SYNC` e usa a syscall `mmap2` para mapear uma região de 2 MB a partir do endereço físico `0xFF200000`, armazenando o ponteiro virtual na variável global `ptr_base`. Como os PIOs são registradores de hardware, cujos valores podem mudar a qualquer momento por ação da FPGA, o acesso é feito sem passar pelo cache, de modo que cada leitura e escrita chega diretamente ao registrador e o processador não lê valores desatualizados. Cada PIO é acessado somando-se o seu *offset* (tabela da seção 2.3.1) ao ponteiro base.
 
 # 3.2. Funções
 
@@ -524,7 +524,7 @@ As rotinas `gpu_init` e `gpu_close` são responsáveis por inicializar e encerra
 
 | Função | Descrição |
 |---|---|
-| `gpu_init` | Prepara o ambiente de comunicação do processador ARM com a FPGA. Inicialmente, verifica se o ponteiro base já está mapeado. Caso não esteja, realiza o mapeamento de memória já explicado anteriormente. Por fim, garante que o sinal `PIO_VAL` seja inicializado em nível lógico baixo (0), retornando `0` em caso de sucesso ou `-1` em caso de falha. |
+| `gpu_init` | Prepara o ambiente de comunicação do processador ARM com a FPGA. Inicialmente, verifica se o ponteiro base já está mapeado. Caso não esteja, realiza o mapeamento de memória (seção 3.1). Por fim, garante que o sinal `PIO_VAL` seja inicializado em nível lógico baixo (0), retornando `0` em caso de sucesso ou `-1` em caso de falha. |
 | `gpu_close` | Realiza o desmapeamento de memória através da syscall `munmap`, zera o ponteiro base e finaliza a comunicação de forma segura. |
 
 ## 3.2.2. Funções de Monitoramento de Status e Telemetria
@@ -582,10 +582,11 @@ As funções deste grupo são responsáveis por organizar os parâmetros recebid
 
 A função `enviar_instrucao` é responsável por garantir o envio síncrono das instruções, implementando o protocolo Handshake em Assembly a partir do seguinte fluxo:
 
-- Escrita do Comando: O HPS escreve o dado vindo de uma das funções de codificação da ISA em `PIO_INST`. 
-- Barreira de Memória: Executa `dmb` e sobe a linha `PIO_VAL`. 
-- Reconhecimento da FPGA: O hardware grava a instrução na FIFO e responde subindo `PIO_DONE`. 
-- Finalização: O HPS abaixa `PIO_VAL`, atualiza o contador de instruções enviadas e aguarda `PIO_DONE` retornar a zero para liberar a próxima chamada.
+- Verificação: Certifica-se de que `gpu_init()` foi executada e que o coprocessador está disponível, ou seja , `PIO_BUSY` em nível lógico baixo;
+- Escrita do Comando: O HPS escreve o dado vindo de uma das funções de codificação da ISA em `PIO_INST`;
+- Barreira de Memória: Executa `dmb` e sobe a linha `PIO_VAL`; 
+- Reconhecimento da FPGA: O hardware grava a instrução na FIFO e responde subindo `PIO_DONE`;
+- Finalização: O HPS abaixa `PIO_VAL`, aguarda `PIO_DONE` retornar a zero para liberar a próxima chamada e atualiza o contador de instruções enviadas.
 
 Esta função também possui um contador interno de timeout para evitar travamentos do sistema caso a placa seja resetada ou não responda.
 
@@ -594,7 +595,7 @@ Esta função também possui um contador interno de timeout para evitar travamen
 - **Acoplamento à ISA desenvolvida pela equipe:** o driver em Assembly contempla as instruções desenvolvidas pela equipe, portanto, a inclusão de novas instruções implica diretamente na modificação do driver.
 - **Acoplamento ao sistema operacional Linux:** o driver em Assembly utiliza chamadas de sistema específicas do Linux, assim, ele pode não funcionar em outros SOs.
 - **Não há suporte para multithreading:** as variáveis globais do driver não possuem mecanismos de exclusão mútua, fazendo com que erros ocorram caso mais de uma thread utilize o driver.
-- **Limitação gerada pelo protocolo de handshake:** o envio de instruções depende do mecanismo de sincronização de 4 vias, limitando o envio de grandes volumes de dados a aproximadamente 286 mil instruções/segundo, o que pode ser insuficiente para certas aplicações.
+- **Limitação gerada pelo protocolo de handshake:** o envio de instruções depende do mecanismo de sincronização de 4 vias, limitando o envio de grandes volumes de dados, o que pode ser insuficiente para certas aplicações.
 
 </details>
 
@@ -603,7 +604,7 @@ Esta função também possui um contador interno de timeout para evitar travamen
 <details>
 <summary><h2 id="4-threads"> 4. Threads</h2></summary>
 
-Este projeto apresenta diversos componentes que compartilham recursos e funcionam em frequências de clock diferentes. Desse modo, este tópico busca explicar como as camadas interagem com os recursos e entre si, evitando situações de concorrência e dessincronização.
+A camada de aplicação do jogo é separada em duas threads, compartilhando recursos e comunicando-se com o coprocessador gráfico. Desse modo, este tópico busca explicar como as linhas de execução interagem com os recursos e entre si, evitando situações de concorrência e dessincronização.
 
 # 4.1. Modelo de Execução Multithread
 
@@ -611,17 +612,15 @@ O jogo desenvolvido em C apresenta duas threads (linhas de execução), uma dedi
 
 Neste projeto, as threads funcionam em uma relação de **Produtor-Consumidor**, em que a thread do teclado é o produtor e a thread principal é o consumidor. Além disso, foi utilizada a biblioteca **Pthreads (POSIX Threads)**, que possui funções para gerenciamento e sincronização de threads, além de estruturas de dados e atributos para configuração das threads.
 
-## 4.1.1. Thread Principal
+# 4.2. Thread Principal
 
-A thread principal é a linha de execução do jogo, contendo o loop do jogo, a máquina de estados e a comunicação com o coprocessador. No código em C, esta thread não foi explicitamente declarada, mas é nela que há toda a organização dos componentes necessários para o funcionamento do jogo.
+A thread principal é a linha de execução do jogo, contendo o loop do jogo, a máquina de estados e a comunicação com o coprocessador. No código em C, esta thread não foi explicitamente declarada, mas é nela que há toda a organização dos componentes necessários para o funcionamento do jogo. Inicialmente, há a inicialização do coprocessador gráfico com o gpu_init e a criação da thread do teclado. Então, inicia-se o loop de execução do jogo. Nele, a máquina de estados gerencia a troca entre as telas e fases, desencadeada pelos eventos de entrada do teclado, calcula o tempo de cada frame e sincroniza a taxa de atualização do jogo em aproximadamente 60 FPS. 
 
-Inicialmente, há a inicialização do coprocessador gráfico com o `gpu_init` e a criação da thread do teclado. Então, inicia-se o loop de execução do jogo. Nele, a máquina de estados gerencia a troca entre as telas e fases, desencadeada pelos eventos de entrada do teclado, calcula o tempo de cada frame e sincroniza a taxa de atualização do jogo em aproximadamente 60 FPS.
+A sincronização de quadro com o VSYNC via software em C ocorre com o envio de instruções `noop` após cada iteração do laço do jogo, assim, a fila de instruções fica cheia e apenas instruções do frame atual são executadas até o sinal do VSYNC. Destarte, a técnica de *Double Buffering* impede a geração de erros visuais, como o *screen tearing*, e, juntamente com o envio de instruções `noop` e a parada momentânea de execução da thread principal, asseguram a produção de frames a 60 Hz.
 
-Ao final do jogo, todos os sprites e polígonos são ocultados, e a comunicação com o coprocessador gráfico e a thread do teclado são finalizados com o `gpu_close` e o `pthread_cancel`, respectivamente.
+Ao final do jogo, todos os sprites e polígonos são ocultados, a comunicação com o coprocessador gráfico e a thread do teclado são finalizados com o `gpu_close` e `pthread_cancel`, respectivamente. Vale ressaltar que apenas a thread principal comunica-se com o driver em Assembly. Isso ocorre, pois evita condições de corrida e corrobora a função desta thread de gerenciar o jogo, tanto logicamente quanto graficamente, assegurando que os movimentos de sprites e polígonos respeitam as entradas do teclado e os limites do jogo.
 
-Vale ressaltar que apenas a thread principal comunica-se com o driver em Assembly. Isso ocorre, pois evita condições de corrida e corrobora a função desta thread de gerenciar o jogo, tanto logicamente quanto graficamente, assegurando que os movimentos de sprites e polígonos respeitam as entradas do teclado e os limites do jogo.
-
-## 4.1.2. Thread Dedicada de Entrada USB
+# 4.3. Thread Dedicada de Entrada USB
 
 A thread dedicada à entrada USB é responsável pela leitura dos eventos que ocorrem no teclado. As três principais estruturas dessa thread são:
 
@@ -629,40 +628,15 @@ A thread dedicada à entrada USB é responsável pela leitura dos eventos que oc
 - a variável global `jogo_rodando`, que mantém os laços de execução ativos até o final do jogo;
 - o mutex `mutex_teclado`, que controla o acesso à estrutura `teclado`.
 
-Inicialmente, a thread identifica onde ocorreu o mapeamento do teclado, obtendo os descritores de arquivo que possibilitam a comunicação entre o jogo e o teclado. Então, inicia-se o loop de execução do jogo. Ao captar um evento do teclado, o mutex é bloqueado para atualização do estado da tecla pressionada e depois é desbloqueado. Caso um evento do teclado não seja identificado, a thread "dorme" por dois milissegundos, evitando desperdício de processamento da CPU.
+ Inicialmente, a thread identifica o dispositivo de entrada correspondente ao teclado, obtendo os descritores de arquivo que possibilitam a comunicação entre o jogo e o teclado. Então, inicia-se o laço de leitura de eventos. Ao captar um evento do teclado, o mutex é bloqueado para atualização do estado da tecla pressionada e depois é desbloqueado. Caso um evento do teclado não seja identificado, a thread “dorme” por dois milissegundos, evitando desperdício de processamento da CPU.
 
 É importante destacar que a abertura dos arquivos de dispositivo de entrada é feita no modo não bloqueante, permitindo que a thread não congele.
 
-## 4.1.3. Sincronização entre Threads
+# 4.4. Sincronização entre Threads
 
-Como já citado anteriormente, as threads desenvolvidas para este jogo funcionam em uma relação Produtor-Consumidor e utilizam um mutex `pthread_mutex_t` para evitar incoerência de valores na estrutura estática compartilhada `teclado`. 
+Como já citado anteriormente, as threads desenvolvidas para este jogo funcionam em uma relação Produtor-Consumidor e utilizam um mutex para evitar incoerência de valores na estrutura estática compartilhada teclado. 
 
-A thread do teclado é a produtora e aumenta os valores de `teclado` à medida que captura eventos do teclado, já a thread principal é a consumidora, consumindo os estados e limpando os disparos do teclado. Para que isso ocorra corretamente, a cada atualização dos valores de `teclado` o mutex é bloqueado, sendo desbloqueado ao final da atualização.
-
-# 4.2. Interação entre a Concorrência do Processador ARM e o Paralelismo do Coprocessador FPGA
-
-O processador ARM e o coprocessador gráfico na FPGA trabalham com paradigmas e em ciclos de clock totalmente diferentes.
-
-| Componente | Paradigma | Clock |
-|---|---|---|
-| Processador ARM | Concorrência entre threads | ~800 MHz |
-| Coprocessador gráfico (FPGA) | Paralelo: os motores trabalham em conjunto para gerar a cor de um pixel | 25 MHz |
-
-Desse modo, são necessários mecanismos de sincronização entre as diferentes camadas do projeto.
-
-## 4.2.1. Desacoplamento Temporal: Leitura Assíncrona de Entrada vs. Varredura Contínua VGA a 60 Hz
-
-Como visto anteriormente, o processador ARM e o coprocessador gráfico operam em frequências muito distintas: enquanto o ARM executa continuamente o código do jogo e envia as instruções que constroem cada frame, o coprocessador realiza, de forma independente, a varredura contínua do VGA para exibir esses frames. 
-
-Para evitar que instruções poderiam ser perdidasesse problema, o projeto utiliza dois mecanismos complementares. O primeiro é o protocolo de handshake (já explicado anteriormente), que garante que cada instrução enviada pelo ARM foi recebida com sucesso e armazenada na fila de instruções do coprocessador. O segundo é a própria fila, que atua como um intermediário entre os dois lados, permitindo que o ARM envie instruções sem precisar aguardar a execução de cada uma delas.
-
-Por fim, dentro do coprocessador, o desacoplamento temporal entre a leitura das instruções da fila e a varredura contínua do VGA permite que os frames sejam gerados corretamente, mesmo diante da diferença de frequência entre as duas partes do sistema.
-
-## 4.2.2. Sincronização de Quadro: Papel do Software
-
-Em tópicos anteriores, pode-se entender como o hardware realiza a sincronização de quadro com o VSYNC. Porém, em software isso também ocorre. A sincronização via software em C ocorre com o envio de instruções `noop` após cada iteração do laço do jogo, assim, a fila de instruções fica cheia e apenas instruções do frame atual são executadas até o sinal do VSYNC. 
-
-Destarte, a técnica de *Double Buffering*, o envio de instruções `noop` e a parada de execução da thread principal por dois milissegundos impedem a geração de erros visuais, como o *screen tearing*, e asseguram a produção de frames a 60 Hz.
+A thread do teclado é a produtora e aumenta os valores de teclado à medida que captura eventos do teclado, já a thread principal é a consumidora, consumindo os estados e limpando os disparos do teclado. Para que isso ocorra corretamente, a cada atualização dos valores de teclado, o mutex é bloqueado, sendo desbloqueado ao final da atualização. 
 
 </details>
 
