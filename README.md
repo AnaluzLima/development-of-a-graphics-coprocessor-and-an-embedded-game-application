@@ -28,7 +28,7 @@
 
 </details>
 
-# 1. Sobre o projeto
+# 1. Sobre o Projeto
 
 Este projeto entrega o **produto final do console digital dedicado** proposto na matéria de Sistemas Digitais (UEFS, 2026.2): um jogo completo, escrito em **linguagem C**, que roda no processador **ARM (HPS)** da placa **DE1-SoC** sob Linux embarcado e exibe a imagem em um monitor **VGA**, controlado pelo **teclado USB** conectado à placa.
 
@@ -839,19 +839,27 @@ typedef struct {
 
 A validação do sistema integrado foi conduzida diretamente na placa **DE1-SoC** por meio de duas frentes complementares de testes em tempo real:
 
-1. ESQUECI DE TESTAR
+1. **Teste Interativo Individualizado (`testeInstrucoes.c`):** Programa com menu interativo utilizado durante o desenvolvimento para validar manualmente o disparo isolado de cada função do driver Assembly (`libAssembly.S`), a resposta visual imediata no monitor VGA e o comportamento de retenção e limpeza das flags de status (`error` e `warning`).
 
 2. **Validação Arquitetural e Estresse (`testeClaude.c`):** Uma bateria automatizada e interativa de **25 cenas** que submeteu o coprocessador a **8.383.369 instruções consecutivas**, aferindo com resolução de nanosegundos a latência de *handshake* MMIO, a precisão das flags de hardware, a retenção da `FIFO`, os limites geométricos da ISA e o orçamento máximo de instruções por quadro a 60 Hz.
    
 3. **Telemetria em Tempo Real no Jogo (`metricas.c`):** Instrumentação acoplada ao *game loop* para monitorar o custo de renderização de cada estado do jogo (menus, transições de tela e fases jogáveis), o consumo percentual do orçamento de quadro de $16,67\text{ ms}$ e o impacto das decisões tomadas na fluidez de 60 FPS.
 
-# 6.1. Teste Individualizado das Instruções e resultado das Flags de Status
+# 6.1. Teste Individualizado das Instruções e Resultado das Flags de Status
+
+Antes de submeter o coprocessador às baterias automatizadas de estresse, utiliza-se o programa interativo `testeInstrucoes.c` para validar individualmente cada instrução da ISA e verificar a leitura das flags no registrador `PIO_STATUS` (`0xFF260000`) após cada envio.
+
+Por meio de um menu em terminal, pode-se selecionar qualquer uma das 13 instruções válidas ou forçar o envio de uma palavra inválida (`0xFFFFFFFF`), exibindo imediatamente o valor em hexadecimal do registrador de status e os campos decodificados (`busy`, `fifo_full`, `fifo_empty`, `error`, `warning` e `frame_hw`).
+
+```text
+[STATUS APOS ENVIO] status=0x716B0002 | busy=0 | fifo_full=0 | fifo_empty=1 | error=0 | warning=0 | frame_hw=29035
+``` 
 
 # 6.2. Teste de Estresse no Coprocessador e Análise do Desempenho
 
 Ao longo das **25 cenas**, foram executadas **470 verificações automatizadas**, encerrando com **100% de aprovação**.
 
-## 6.1.1. Validação do Link MMIO, Semântica do Driver e Flags de Status (Cenas 01 a 10)
+## 6.2.1. Validação do Link MMIO, Semântica do Driver e Flags de Status (Cenas 01 a 10)
 
 As dez primeiras cenas validaram a integridade da ponte *Lightweight HPS-to-FPGA*, o empacotamento de bits do driver Assembly e o comportamento das flags do registrador `PIO_STATUS` (`0xFF260000`):
 
@@ -862,7 +870,7 @@ As dez primeiras cenas validaram a integridade da ponte *Lightweight HPS-to-FPGA
 | **05 – 07** | **VSYNC, `NOOP` e `FIFO` (16)** | Taxa estável de **`59,524 FPS`** (`16,800 ms`, *jitter* de `1,16 µs`); `FIFO` absorve **17 comandos** sem bloqueio e aplica *backpressure* até o `VSYNC`, drenando em **`3,7 µs`**. |
 | **08 – 10** | **Flags (`wrn_param`, `err_opcode`), `CLST` e *Fuzzing*** | `59/59` limites de parâmetros e `19/19` opcodes inválidos (`13..31`) retidos corretamente e limpos via `CLST`; **`0` divergências** em 20.000 rajadas aleatórias. |
 
-## 6.1.2. Perfilamento de Latência, Vazão Sustentada e Orçamento por Quadro (Cenas 11 a 13)
+## 6.2.2. Perfilamento de Latência, Vazão Sustentada e Orçamento por Quadro (Cenas 11 a 13)
 
 Na **Cena 11**, cada uma das 13 instruções da ISA (além do `NOOP` e de opcodes inválidos) foi disparada **5.000 vezes isoladamente** (totalizando 70.000 medições individuais) para mapear os percentis de tempo de resposta do protocolo de *handshake*:
 
@@ -902,7 +910,7 @@ Testando o orçamento prático em regime contínuo ($k$ instruções `POSPO` + `
 
 * **Custo de Redesenho Total do Background (`76.800 BTILE`):** Preencher os $320 \times 240$ pixels inteiros do plano de fundo em rajada contínua levou exatamente **`182,5 ms`** (**`420.849 pixels/s`**), o que consome **10,9 quadros de vídeo** ($\sim 5,5\text{ FPS}$ se executado a cada frame).
 
-## 6.1.3. Validação Visual e Funcional dos Motores Gráficos (Cenas 14 a 23)
+## 6.2.3. Validação Visual e Funcional dos Motores Gráficos (Cenas 14 a 23)
 
 As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os subsistemas gráficos do coprocessador:
 
@@ -913,6 +921,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
 <div align="center">
   <figure>
     <img src="resources/testeBackground.gif">
+    <br>
     <figcaption>
       <i>Figura x - Testes das Instruções de Background.</i>
     </figcaption>
@@ -928,6 +937,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
 <div align="center">
   <figure>
     <img src="resources/testeSprites.gif">
+    <br>
     <figcaption>
       <i>Figura x - Testes das Instruções de Sprite.</i>
     </figcaption>
@@ -950,6 +960,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
 <div align="center">
   <figure>
     <img src="resources/testePoligonos.gif">
+    <br>
     <figcaption>
       <i>Figura x - Testes das Instruções de Polígonos.</i>
     </figcaption>
@@ -958,7 +969,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
 
 <br>
 
-## 6.1.4. Teste Integrado e Estresse Extremo (Cenas 24 e 25)
+## 6.2.4. Teste Integrado e Estresse Extremo (Cenas 24 e 25)
 
 As duas últimas cenas submeteram o coprocessador à carga máxima combinada:
 
@@ -971,6 +982,7 @@ As duas últimas cenas submeteram o coprocessador à carga máxima combinada:
 <div align="center">
   <figure>
     <img src="resources/testeGeral.gif">
+    <br>
     <figcaption>
       <i>Figura x - Teste Geral e de Estresse.</i>
     </figcaption>
@@ -979,7 +991,7 @@ As duas últimas cenas submeteram o coprocessador à carga máxima combinada:
 
 <br>
 
-## 6.1.5. Resultado do Teste
+## 6.2.5. Resultado do Teste
 
 Ao término das 25 cenas, foram registradas **4.717.266 instruções de configuração/memória** e **8.383.369 envios totais** sem um único *timeout* de barramento:
 
