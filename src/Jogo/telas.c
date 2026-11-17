@@ -26,6 +26,7 @@ static void desenhar_bg_rank(void) { desenhar_background_dados(bg_rank_dados); }
 static void desenhar_bg_tela_menu(void) { desenhar_background_dados(bg_tela_menu_dados); }
 static void desenhar_bg_thecat(void) { desenhar_background_dados(bg_thecat_dados); }
 static void desenhar_bg_vitoria(void) { desenhar_background_dados(bg_vitoria_dados); }
+static void desenhar_bg_creditos(void) { desenhar_background_dados(bg_creditos_dados); }
 
 static int obter_indice_char(char c) {
     if (c >= 'A' && c <= 'Z') return c - 'A';
@@ -464,6 +465,13 @@ void atualizar_tela_rank(int frame_atual) {
     rgsp(31, slot_brilho);
     possp(31, 278, 119);
     atsp(31, 0, 1);
+}
+
+void carregar_tela_creditos(void) {
+    ocultar_todos_sprites_e_poligonos();
+    bscroll(0, 0);
+    desenhar_bg_creditos();
+    prior(0);
 }
 
 void animar_morte_gato(int px, int py) {

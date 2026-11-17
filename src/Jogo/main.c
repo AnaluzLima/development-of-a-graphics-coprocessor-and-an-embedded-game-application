@@ -14,7 +14,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
     clear_status();
-    carregar_rankinarquivo();
+    carregar_ranking_arquivo();
 
     if (pthread_create(&th_teclado, NULL, thread_teclado_usb, NULL) != 0) {
         fprintf(stderr, "ERRO: Falha ao criar a thread do teclado USB.\n");
@@ -83,6 +83,9 @@ int main(void) {
                     estado_atual = ESTADO_JOGO_RODANDO;
                     break;
                 case ESTADO_TELA_RANK:
+                    estado_atual = ESTADO_TELA_CREDITOS;
+                    break;
+                case ESTADO_TELA_CREDITOS:
                 default:
                     contador_vitoria = 0;
                     estado_atual = ESTADO_MENU_INICIAL;
@@ -350,6 +353,21 @@ int main(void) {
                 }
 
                 atualizar_tela_rank(timer_frames++);
+
+                if (botoes.tecla_enter) {
+                    limpar_direcoes_teclado();
+                    estado_iniciado = 0;
+                    estado_atual = ESTADO_TELA_CREDITOS;
+                }
+                noop();
+                break;
+
+            case ESTADO_TELA_CREDITOS:
+                if (!estado_iniciado) {
+                    carregar_tela_creditos();
+                    timer_frames = 0;
+                    estado_iniciado = 1;
+                }
 
                 if (botoes.tecla_enter) {
                     limpar_direcoes_teclado();

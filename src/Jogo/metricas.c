@@ -95,7 +95,7 @@ static void ordenar_ranking(void) {
     }
 }
 
-void carregar_rankinarquivo(void) {
+void carregar_ranking_arquivo(void) {
     for (int i = 0; i < MAX_RANKING; i++) {
         ranking[i].pontos_totais = 0;
         ranking[i].skin_id = SKIN_GATO_PRETO;

@@ -376,17 +376,12 @@ int checar_colisoes(int espaco_segurado) {
 
     //colisão com Inimigos
     if (bateu_patrulha) {
-        if (!(fase_atual == 2 && espaco_segurado)) {
-            return -1;
-        }
+        return -1;
     }
     for (int i = 0; i < num_patrulhas; i++) {
         InimigoPatrulha *p = &patrulhas[i];
         if (p->ativo) {
             if (retangulos_colidem(jogador_px, jogador_py, 16, 16, p->px, p->py, 16, 16)) {
-                if (fase_atual == 2 && espaco_segurado) {
-                    continue;
-                }
                 return -1;
             }
         }
