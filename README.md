@@ -687,6 +687,39 @@ stateDiagram-v2
 | **Ranking** | Top 3 com skin e pontos, mais a pontuação total da partida no canto esquerdo | `Enter` |
 
 > **Atalho de depuração:** a tecla `P` avança imediatamente para a próxima tela/fase. Ela existe para testes e deve ser desativada na versão final.
+A seguir, as principais telas do jogo, na ordem em que aparecem para o jogador.
+<div align="center">
+  <figure>
+    <img src="resources/telainicial.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Tela inicial.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
+A tela seguinte permite escolher a skin do gato que será usada em todas as fases.
+<div align="center">
+  <figure>
+    <img src="resources/menu_debuggerCat.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Menu inicial e escolha do personagem.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
+Durante a partida, a tecla `Esc` abre a tela de pausa, com as opções de sair, reiniciar a fase ou continuar a fase de onde parou.
+<div align="center">
+  <figure>
+    <img src="resources/pause.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Tela de pausa funcionando.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
 
 ---
 
@@ -720,6 +753,19 @@ Todas as colisões usam **retângulos alinhados aos eixos (AABB)**, pela funçã
 | **Portal** (14×14) | Sobreposição com o gato | **Vitória** |
 
 Ao morrer, `animar_morte_gato()` exibe a animação de fumaça (7 quadros) antes da tela de derrota.
+Ao tocar em um elemento letal, o gato morre e aparece a tela de derrota.
+<div align="center">
+  <figure>
+    <img src="resources/derrota.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Tela de derrota.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
+
+
 
 ---
 
@@ -753,11 +799,62 @@ Cada fase é um mapa de **320×480 px** (duas telas empilhadas), com fundo, más
 | **Bugs** | 3 | 3 | 3 |
 | **Início do gato (x, y)** | (136, 463) | (152, 463) | (13, 463) |
 | **Portal (x, y)** | (89, 0) | (16, 21) | (154, 0) |
+Veja cada fase em funcionamento na placa:
+<div align="center">
+  <figure>
+    <img src="resources/fase1.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Fase 1 rodando.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
+<div align="center">
+  <figure>
+    <img src="resources/fase2.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Fase 2 rodando.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
+<div align="center">
+  <figure>
+    <img src="resources/fase3.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Fase 3 rodando.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
 
 **Progressão:** a fase 1 apresenta o deslizamento, os espinhos que armam e uma patrulha. A fase 2 acrescenta o BotDog e mais espinhos. A fase 3 reúne tudo e adiciona as aves que atiram. Além disso, a pose de `Espaço` passa a neutralizar patrulhas.
+<div align="center">
+  <figure>
+    <img src="resources/protecao.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Jogador ativando proteção.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
 
 **Evento especial da fase 3:** ao passar pelo ponto (144, 57), perto do portal, o **portal foge** para (235, 427) e o mapa troca de `mapa_fase3_1` para `mapa_fase3_2` (`portal_fugiu`). O jogador precisa voltar para alcançá-lo.
-
+Ao final de cada fase caso o jogador ganhe ele vai para a tela de vitória abaixo:
+<div align="center">
+  <figure>
+    <img src="resources/tela-de-vitoria.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Tela de vitória.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
 ---
 
 # 5.6. Como funciona a pontuação
@@ -774,6 +871,17 @@ Cada fase é um mapa de **320×480 px** (duas telas empilhadas), com fundo, más
 - O cronômetro começa ao confirmar a tela de intro da fase e **não zera ao morrer**.
 - Ao morrer, os bugs da tentativa são **repostos** e a tela de derrota mostra os pontos da tentativa já com a multa.
 - A **pontuação total** é a soma das 3 fases (`g_pontos_totais`) e é exibida com 4 dígitos.
+Ao concluir a fase 3, a pontuação é registrada e o Top 3 é exibido:
+<div align="center">
+  <figure>
+    <img src="resources/rank.gif">
+    <br>
+    <figcaption>
+      <i>Figura x - Tela do Top 3 melhores pontuações.</i>
+    </figcaption>
+  </figure>
+</div>
+<br>
 
 ---
 
