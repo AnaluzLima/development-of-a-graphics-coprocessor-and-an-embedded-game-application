@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-/* Declaração das rotinas do driver Assembly (libAssembly.S) */
 /* Offsets e dimensões */
 #define CAT0INICIO_OFFSET   0
 #define CAT1INICIO_OFFSET   4

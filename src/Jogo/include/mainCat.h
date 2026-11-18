@@ -9,10 +9,9 @@
 
 #include <stdint.h>
 
-/* Declaração das rotinas do driver Assembly (libAssembly.S) */
 #define GATO_NUM_SKINS    3
 #define GATO_NUM_FRAMES   2
-#define GATO_SLOT_BASE    0   /* Ocupa os slots 0 e 1 da RAM de sprites */
+#define GATO_SLOT_BASE    0
 #define GATO_LARGURA      16
 #define GATO_ALTURA       16
 

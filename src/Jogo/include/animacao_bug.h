@@ -12,7 +12,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Declaração das funções do driver Assembly (libAssembly.S) */
 /* ============================================================================
  * 1. FRAME: BUG 0 - PRINCIPAL / VIVO (Slot 0)
  * ============================================================================ */

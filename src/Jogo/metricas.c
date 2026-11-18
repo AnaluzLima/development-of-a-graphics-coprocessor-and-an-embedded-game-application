@@ -4,8 +4,8 @@
 #include <time.h>
 #include "jogo.h"
 
-#define ARQUIVO_RANKING "rankintomb_of_the_mask.dat"
-#define ARQUIVO_RANKINLEGADO "rankintombofthedesk.dat"
+#define ARQUIVO_RANKING "ranking_tomb_of_the_mask.dat"
+#define ARQUIVO_RANKINLEGADO "rankingtombofthedesk.dat"
 #define PONTUACAO_MAXIMA 99999999
 #define INTERVALO_RELATORIO 1.0
 
@@ -13,13 +13,12 @@ RegistroRanking ranking[MAX_RANKING];
 
 typedef struct {
     unsigned long frames;
-    unsigned long frames_lentos;
     unsigned long inst_janela;
-    int flabusy;
-    int flafifo_cheia;
-    int flafifo_vazia;
-    int flaerro_gpu;
-    int flaaviso_gpu;
+    int flag_busy;
+    int flag_fifo_cheia;
+    int flag_fifo_vazia;
+    int flag_erro_gpu;
+    int flag_aviso_gpu;
     double soma_frame_ms;
     double maior_frame_ms;
     double menor_frame_ms;
@@ -28,21 +27,22 @@ typedef struct {
 } MetricasJanela;
 
 static MetricasJanela metricas = {0};
-static unsigned long total_frames_acumulados = 0;
-static unsigned long total_inst_acumuladas = 0;
 
+//retorna o tempo do sistema em segundos
 double obter_tempo_atual_segundos(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
 }
 
+//retorna o tempo de CPU consumido exclusivamente pelo processo do jogo
 static double obter_tempo_cpu_segundos(void) {
     struct timespec ts;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
 }
 
+//conta quantos bits estão em 1 em uma máscara de sprites ou polígonos ativos
 static int contar_bits_ativos(uint32_t mascara) {
     int c = 0;
     while (mascara) {
@@ -52,15 +52,15 @@ static int contar_bits_ativos(uint32_t mascara) {
     return c;
 }
 
+//zera os acumuladores de telemetria para iniciar uma nova janela de 1 segundo
 static void limpar_metricas_janela(double agora, double cpu_agora) {
     metricas.frames = 0;
-    metricas.frames_lentos = 0;
     metricas.inst_janela = 0;
-    metricas.flabusy = 0;
-    metricas.flafifo_cheia = 0;
-    metricas.flafifo_vazia = 0;
-    metricas.flaerro_gpu = 0;
-    metricas.flaaviso_gpu = 0;
+    metricas.flag_busy = 0;
+    metricas.flag_fifo_cheia = 0;
+    metricas.flag_fifo_vazia = 0;
+    metricas.flag_erro_gpu = 0;
+    metricas.flag_aviso_gpu = 0;
     metricas.soma_frame_ms = 0.0;
     metricas.maior_frame_ms = 0.0;
     metricas.menor_frame_ms = 1e9;
@@ -68,12 +68,14 @@ static void limpar_metricas_janela(double agora, double cpu_agora) {
     metricas.cpu_inicio_janela = cpu_agora;
 }
 
-static int rankinvalido(const RegistroRanking *r) {
+//verifica se um registro lido do arquivo possui valores íntegros
+static int registro_ranking_valido(const RegistroRanking *r) {
     return r->valido == 1 && r->pontos_totais >= 0 &&
            r->pontos_totais <= PONTUACAO_MAXIMA &&
            r->skin_id >= 0 && r->skin_id < TOTAL_SKINS_GATO;
 }
 
+//ordena o top 3 do ranking em ordem decrescente de pontuação
 static void ordenar_ranking(void) {
     for (int i = 0; i < MAX_RANKING; i++) {
         if (!rankinvalido(&ranking[i])) {
@@ -95,6 +97,7 @@ static void ordenar_ranking(void) {
     }
 }
 
+//carrega o ranking persistido na inicialização do jogo
 void carregar_ranking_arquivo(void) {
     for (int i = 0; i < MAX_RANKING; i++) {
         ranking[i].pontos_totais = 0;
@@ -115,7 +118,8 @@ void carregar_ranking_arquivo(void) {
     ordenar_ranking();
 }
 
-void salvar_rankinarquivo(void) {
+//grava o top 3 atualizado no arquivo binário local
+void salvar_ranking_arquivo(void) {
     ordenar_ranking();
     FILE *f = fopen(ARQUIVO_RANKING, "wb");
     if (!f) {
@@ -129,6 +133,7 @@ void salvar_rankinarquivo(void) {
     fclose(f);
 }
 
+//insere uma nova pontuação no yop 3 caso supere algum recorde atual
 void registrar_no_ranking(int pontos_totais, int skin_id) {
     if (pontos_totais < 0) pontos_totais = 0;
     if (pontos_totais > PONTUACAO_MAXIMA) pontos_totais = PONTUACAO_MAXIMA;
@@ -144,13 +149,15 @@ void registrar_no_ranking(int pontos_totais, int skin_id) {
     }
     if (pos < 0) return;
 
+    //desloca os recordes inferiores para abrir espaço na posição pos
     for (int i = MAX_RANKING - 1; i > pos; i--) ranking[i] = ranking[i - 1];
     ranking[pos].pontos_totais = pontos_totais;
     ranking[pos].skin_id = skin_id;
     ranking[pos].valido = 1;
-    salvar_rankinarquivo();
+    salvar_ranking_arquivo();
 }
 
+//registra o tempo e as flags de hardware de cada frame, imprimindo o resumo a cada 1s
 void metricas_registrar_frame(double duracao_segundos) {
     double agora = obter_tempo_atual_segundos();
     double cpu_agora = obter_tempo_cpu_segundos();
@@ -165,20 +172,18 @@ void metricas_registrar_frame(double duracao_segundos) {
     uint32_t inst_frame = obter_e_zerar_instrucoes();
 
     metricas.frames++;
-    total_frames_acumulados++;
     metricas.inst_janela += inst_frame;
-    total_inst_acumuladas += inst_frame;
     metricas.soma_frame_ms += ms;
 
     if (ms > metricas.maior_frame_ms) metricas.maior_frame_ms = ms;
     if (ms < metricas.menor_frame_ms) metricas.menor_frame_ms = ms;
-    if (ms > 16.67) metricas.frames_lentos++;
 
-    metricas.flabusy |= (busy() != 0) ? 1 : 0;
-    metricas.flafifo_vazia = (fifo_empty() != 0) ? 1 : 0;
-    metricas.flafifo_cheia |= (fifo_full() != 0) ? 1 : 0;
-    metricas.flaerro_gpu |= (error() != 0) ? 1 : 0;
-    metricas.flaaviso_gpu |= (warning() != 0) ? 1 : 0;
+    //coleta as flags de status do coprocessador
+    metricas.flag_busy |= (busy() != 0) ? 1 : 0;
+    metricas.flag_fifo_vazia = (fifo_empty() != 0) ? 1 : 0;
+    metricas.flag_fifo_cheia |= (fifo_full() != 0) ? 1 : 0;
+    metricas.flag_erro_gpu |= (error() != 0) ? 1 : 0;
+    metricas.flag_aviso_gpu |= (warning() != 0) ? 1 : 0;
 
     double janela = agora - metricas.inicio_janela;
     if (janela >= INTERVALO_RELATORIO) {
@@ -205,11 +210,12 @@ void metricas_registrar_frame(double duracao_segundos) {
             fps, uso_cpu_pct, media_ms, metricas.menor_frame_ms, metricas.maior_frame_ms,
             lat_cmd_us, metricas.inst_janela, inst_por_frame,
             sprites_ativos, poligonos_ativos,
-            metricas.flabusy, metricas.flafifo_cheia, metricas.flafifo_vazia,
-            metricas.flaerro_gpu, metricas.flaaviso_gpu);
+            metricas.flag_busy, metricas.flag_fifo_cheia, metricas.flag_fifo_vazia,
+            metricas.flag_erro_gpu, metricas.flag_aviso_gpu);
         fflush(stdout);
-
-        if (metricas.flaerro_gpu || metricas.flaaviso_gpu) {
+        
+        //limpa os flags de aviso/erro na GPU após registrá-los no log
+        if (metricas.flag_erro_gpu || metricas.flag_aviso_gpu) {
             clear_status();
         }
         limpar_metricas_janela(agora, cpu_agora);

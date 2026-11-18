@@ -9,6 +9,7 @@ volatile EstadoJogo estado_atual = ESTADO_TELA_INICIAL;
 int main(void) {
     pthread_t th_teclado;
 
+    //inicializa mapeamento de memoria da GPU, limpa status e carrega ranking salvo
     if (gpu_init() != 0) {
         fprintf(stderr, "ERRO: gpu_init() falhou! Execute com sudo.\n");
         return EXIT_FAILURE;
@@ -16,6 +17,7 @@ int main(void) {
     clear_status();
     carregar_ranking_arquivo();
 
+    //inicia a thread paralela de leitura nao-bloqueante do teclado USB
     if (pthread_create(&th_teclado, NULL, thread_teclado_usb, NULL) != 0) {
         fprintf(stderr, "ERRO: Falha ao criar a thread do teclado USB.\n");
         gpu_close();
@@ -23,21 +25,23 @@ int main(void) {
     }
 
     estado_atual = ESTADO_TELA_INICIAL;
-    int contador_vitoria = 0;
-    int fase_carregada = 0;
-    int estado_iniciado = 0;
-    int timer_frames = 0;
+    int contador_vitoria = 0; //indice da fase atual (0 = Fase 1, 1 = Fase 2, 2 = Fase 3)
+    int fase_carregada = 0; //flag para carregar mapa e entidades apenas uma vez por tentativa
+    int estado_iniciado = 0; //flag para executar o setup inicial de cada tela apenas uma vez
+    int timer_frames = 0; //contador de frames para animacoes
     int opcao_pause = 2; //0 = Sair, 1 = Reiniciar, 2 = Play
     double t_inicio_fase = 0.0;
-
+   
     EstadoTeclado botoes;
 
+    //loop principal do jogo
     while (jogo_rodando) {
         double t_frame_inicio = obter_tempo_atual_segundos();
 
+        //copia o estado mais recente das teclas capturadas pela thread
         ler_botoes_estado(&botoes);
 
-        //TECLA 'P':pra avançar para a próxima tela
+        //TECLA P pra avançar para a próxima tela
         if (botoes.tecla_p) {
             limpar_direcoes_teclado();
             vel_tx = 0;
@@ -50,9 +54,9 @@ int main(void) {
                     estado_atual = ESTADO_MENU_INICIAL;
                     break;
                 case ESTADO_MENU_INICIAL:
-                    estado_atual = ESTADO_TELA_THE_CAT;
+                    estado_atual = ESTADO_TELA_CAT;
                     break;
-                case ESTADO_TELA_THE_CAT:
+                case ESTADO_TELA_CAT:
                     contador_vitoria = 0;
                     pontos_totais = 0;
                     pontos_fase = 0;
@@ -93,6 +97,7 @@ int main(void) {
             }
         }
 
+        //maquina de estados principal das telas e da partida
         switch (estado_atual) {
 
             case ESTADO_TELA_INICIAL:
@@ -120,25 +125,26 @@ int main(void) {
                 if (botoes.tecla_enter) {
                     limpar_direcoes_teclado();
                     estado_iniciado = 0;
-                    estado_atual  = ESTADO_TELA_THE_CAT;
+                    estado_atual  = ESTADO_TELA_CAT;
                 }
                 noop();
                 break;
 
-            case ESTADO_TELA_THE_CAT:
+            case ESTADO_TELA_CAT:
                 if (!estado_iniciado) {
-                    carregar_tela_the_cat();
+                    carregar_tela_cat();
                     timer_frames = 0;
                     estado_iniciado = 1;
                 }
-
+                
+                //alterna entre as 3 skins disponiveis usando esquerda/direita
                 if (botoes.tecla_esq) {
                     skin_selecionada = (skin_selecionada + TOTAL_SKINS_GATO - 1) % TOTAL_SKINS_GATO;
                 } else if (botoes.tecla_dir || botoes.tecla_s) {
                     skin_selecionada = (skin_selecionada + 1) % TOTAL_SKINS_GATO;
                 }
 
-                atualizar_tela_the_cat(timer_frames++, skin_selecionada);
+                atualizar_tela_cat(timer_frames++, skin_selecionada);
 
                 if (botoes.tecla_enter) {
                     limpar_direcoes_teclado();
@@ -195,7 +201,7 @@ int main(void) {
             case ESTADO_JOGO_RODANDO:
                 if (!fase_carregada) {
                     limpar_direcoes_teclado();
-                    pontos_fase = 0; /* Zera os bugs da tentativa anterior ao renascer */
+                    pontos_fase = 0; //zera os pontos da tentativa anterior ao renascer
                     carregar_fase(contador_vitoria, 1);
                     timer_frames = 0;
                     fase_carregada = 1;
@@ -212,8 +218,10 @@ int main(void) {
                     limpar_direcoes_teclado();
                 }
 
+                //executa fisica, movimentacao dos inimigos e atualizacao visual da fase
                 executar_estado_jogando(botoes.espaco_segurado, timer_frames++);
-
+                
+                //pausa a partida ao pressionar ESC
                 if (botoes.tecla_esc) {
                     limpar_direcoes_teclado();
                     timer_frames = 0;
@@ -228,7 +236,8 @@ int main(void) {
                     vel_ty = 0;
 
                     animar_entrada_porta(portal_px, portal_py - ((etapa_fase == 0) ? 240 : 0));
-
+                    
+                    //calcula pontuacao final da fase (bugs + bonus de tempo - penalidade por mortes)
                     double tempo_gasto = obter_tempo_atual_segundos() - t_inicio_fase;
                     if (tempo_gasto < 0.0) tempo_gasto = 0.0;
 
@@ -252,6 +261,8 @@ int main(void) {
                     estado_iniciado = 0;
                     estado_atual = ESTADO_TELA_VITORIA;
                 }
+
+                //verifica derrota ao colidir com espinhos, inimigos ou projeteis
                 else if (checar_colisoes(botoes.espaco_segurado) == -1) {
                     limpar_direcoes_teclado();
                     vel_tx = 0;
@@ -317,7 +328,8 @@ int main(void) {
                     contador_vitoria++;
                     estado_iniciado = 0;
                     fase_carregada = 0;
-
+                    
+                    //se concluiu as 3 fases, registra pontuacao e exibe o ranking
                     if (contador_vitoria >= 3) {
                         registrar_no_ranking(pontos_totais, skin_selecionada);
                         estado_atual = ESTADO_TELA_RANK;
@@ -365,7 +377,6 @@ int main(void) {
             case ESTADO_TELA_CREDITOS:
                 if (!estado_iniciado) {
                     carregar_tela_creditos();
-                    timer_frames = 0;
                     estado_iniciado = 1;
                 }
 
@@ -379,13 +390,15 @@ int main(void) {
                 noop();
                 break;
         }
-
+        
+        //registra telemetria de desempenho
         double t_frame_fim = obter_tempo_atual_segundos();
         metricas_registrar_frame(t_frame_fim - t_frame_inicio);
 
         usleep(16000);
     }
 
+    //encerra recursos de video e finaliza a thread do teclado
     ocultar_todos_sprites_e_poligonos();
     noop();
     gpu_close();

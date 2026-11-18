@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <string.h>
 #include "jogo.h"
 #include "fase1.h"
 #include "fase2.h"
@@ -8,8 +6,8 @@
 #include "animacao_bug.h"
 #include "botdog.h"
 #include "inimigos.h"
-#include "caracteres.h"
 
+//mapeamento dos slots de 16x16 na ram de sprites
 enum {
     SLOT_PATRULHA = 2,
     SLOT_AVE0 = 3,
@@ -20,7 +18,7 @@ enum {
     SLOT_BOTDOG1_BASE = 26
 };
 
-//definição das entidades do jogo
+//definição das entidades e estado do mapa ativo
 BugFase bugs[MAX_BUGS_FASE];
 int num_bugs = 0;
 
@@ -43,7 +41,9 @@ int portal_px  = 91;
 int portal_py  = 3;
 uint8_t portal_cor = 0x00;
 int etapa_fase = 0;
+int portal_fugiu = 0;
 
+//estado da animacao ativa
 int botdog_ativa = 0;
 int botdog_disparada = 0;
 int botdog_dir = 1;
@@ -52,25 +52,14 @@ int botdog_y = 0;
 int botdog_frames = 0;
 int tremor_tela = 0;
 
-int dog_tiro_ativo = 0;
-int dog_tiro_x = 0;
-int dog_tiro_y = 0;
-int dog_timer = 0;
-int dog_anim_frames = 0;
-int dog_explosao_frames = 0;
-int dog_explosao_x = 0;
-int dog_explosao_y = 0;
-
-int portal_fugiu = 0;
-
-//mapa
+//retorna o vetor de pixels do background da fase selecionada
 static const uint8_t *obter_pixels_fase(int fase) {
     if (fase == 1) return mapa_fase2_pixels;
     if (fase == 2) return portal_fugiu ? mapa_fase3_2_pixels : mapa_fase3_1_pixels;
     return mapa_fase1_pixels;
 }
 
-//paredes para colidir
+//retorna a matriz de colisao da fase selecionada
 static const uint8_t (*obter_paredes_fase(int fase))[FASE1_LARGURA] {
     if (fase == 1) return paredesF2;
     if (fase == 2) return paredesF3;
@@ -89,6 +78,7 @@ void carregar_fundo_etapa(void) {
     }
 }
 
+//alterna entre a metade inferior e superior do mapa conforme a altura do jogador
 void atualizar_etapa_camera(int jogador_py) {
     if (etapa_fase == 0 && jogador_py < 240) {
         etapa_fase = 1;
@@ -102,6 +92,7 @@ void atualizar_etapa_camera(int jogador_py) {
     }
 }
 
+//converte a mascara de paredes em pixels para a grade de tiles 8x8
 static void copiar_mascara_colisoes(void) {
     const uint8_t (*paredes)[FASE1_LARGURA] = obter_paredes_fase(fase_atual);
     for (int ty = 0; ty < MAP_TILES_Y; ty++) {
@@ -117,12 +108,14 @@ static void copiar_mascara_colisoes(void) {
     }
 }
 
+//grava um sprite 16x16 em um slot da ram
 static void gravar_slot_sprite(int slot, const uint8_t pixels[256]) {
     for (int p = 0; p < 256; p++) {
         wrsp(slot * 256 + p, pixels[p]);
     }
 }
 
+//carrega os 2 frames da skin escolhida do gato nos slots 0 e 1
 static void carregar_gato_skin_na_ram(int skin_id) {
     if (skin_id < 0 || skin_id >= GATO_NUM_SKINS) skin_id = 0;
     for (int f = 0; f < GATO_NUM_FRAMES; f++) {
@@ -134,6 +127,7 @@ static void carregar_gato_skin_na_ram(int skin_id) {
     }
 }
 
+//carrega na ram apenas os recursos necessarios para a fase atual
 static void carregar_slots_objetos_jogo(void) {
     carregar_gato_skin_na_ram(skin_selecionada);
 
@@ -165,6 +159,7 @@ static void carregar_slots_objetos_jogo(void) {
     }
 }
 
+//funcao para criar um espinho normal fixo na fase
 static void adicionar_espinho_fixo(int px, int py, int tipo_flip, uint8_t cor) {
     if (num_espinhos >= MAX_ESPINHOS_FIXOS) return;
     espinhos[num_espinhos] = (EspinhoFase){
@@ -177,6 +172,7 @@ static void adicionar_espinho_fixo(int px, int py, int tipo_flip, uint8_t cor) {
     num_espinhos++;
 }
 
+//funcao para criar um espinho retratil que dispara quando encosta
 static void adicionar_espinho_temporario(int mx, int my, int tipo_flip, uint8_t cor_base, uint8_t cor_espinho) {
     if (num_espinhos_temp >= MAX_TEMPORARIOS) return;
     espinhos_temp[num_espinhos_temp] = (EspinhoTemporario){
@@ -194,6 +190,7 @@ static void adicionar_espinho_temporario(int mx, int my, int tipo_flip, uint8_t 
     num_espinhos_temp++;
 }
 
+//funcao para colocar um bug na fase
 static void adicionar_bug_px(int px, int py, int sp_id) {
     if (num_bugs >= MAX_BUGS_FASE) return;
     bugs[num_bugs] = (BugFase){ px, py, 1, 0, sp_id };
@@ -222,6 +219,7 @@ static void adicionar_patrulha_circular(int x1, int y1, int x2, int y2, int vel)
     num_patrulhas++;
 }
 
+//adiciona ave que atira
 static void adicionar_ave_robo(int x, int y, int dir) {
     if (num_aves >= MAX_AVES_FASE) return;
     static const int POLY_TIROS_AVES[4] = { 14, 15, 10, 11 };
@@ -249,6 +247,7 @@ static void adicionar_ave_robo(int x, int y, int dir) {
     num_aves++;
 }
 
+//adiciona botdog atravessa a tela
 static void adicionar_botdog(int y_gatilho, int y_pos, int dir) {
     if (num_botdogs >= MAX_BOTDOGS_FASE) return;
     botdogs[num_botdogs] = (BotDogConfig){
@@ -261,6 +260,7 @@ static void adicionar_botdog(int y_gatilho, int y_pos, int dir) {
     num_botdogs++;
 }
 
+//apaga apenas a regiao da porta falsa no topo da Fase 3 sem recarregar toda a tela
 void apagar_porta_topo_fase3(void) {
     int porta_x_inicio = 148;
     int porta_x_fim = 172;
@@ -276,6 +276,7 @@ void apagar_porta_topo_fase3(void) {
     }
 }
 
+//posiciona jogador, portal, armadilhas, inimigos e bugs de cada fase
 static void configurar_layout_fase(int fase, int reinicializar_bugs) {
     num_espinhos = 0;
     num_espinhos_temp = 0;
@@ -284,9 +285,7 @@ static void configurar_layout_fase(int fase, int reinicializar_bugs) {
     num_botdogs = 0;
 
     if (fase == 0) {
-        /* ====================================================================
-         * FASE 1
-         * ==================================================================== */
+        //FASE 1
         adicionar_espinho_temporario(56, 382, POL_TRI_BAIXO, 0x61, 0xFC);
         adicionar_espinho_temporario(272, 390, POL_TRI_ESQ, 0x61, 0xFC);
         adicionar_espinho_temporario(211, 253, POL_TRI_BAIXO, 0x61, 0xFC);
@@ -311,9 +310,7 @@ static void configurar_layout_fase(int fase, int reinicializar_bugs) {
             adicionar_bug_px(64, 73, SPRITE_BUG_BASE + 2);
         }
     } else if (fase == 1) {
-        /* ====================================================================
-         * FASE 2
-         * ==================================================================== */
+        //FASE 2
         portal_px = 16;
         portal_py = 21;
         portal_cor = 0x00;
@@ -348,9 +345,7 @@ static void configurar_layout_fase(int fase, int reinicializar_bugs) {
             adicionar_bug_px(78, 19,  SPRITE_BUG_BASE + 2);
         }
     } else {
-        /* ====================================================================
-         * FASE 3
-         * ==================================================================== */
+        //FASE 3
         portal_px = 154;
         portal_py = 0;
         portal_cor = 0x00;
@@ -392,9 +387,11 @@ static void configurar_layout_fase(int fase, int reinicializar_bugs) {
     }
 }
 
+//atualiza poligonos e sprites das entidades visiveis na metade ativa da tela
 void atualizar_visuais_objetos_fase(int frame_atual) {
     int offset_y = (etapa_fase == 0) ? 240 : 0;
 
+    //atualiza o poligono de colisao/marcacao do portal de saida
     int portal_sy = portal_py - offset_y;
     if (portal_sy >= -16 && portal_sy < SCREEN_H) {
         pospo(POLY_PORTAL, portal_px, portal_sy);
@@ -407,6 +404,7 @@ void atualizar_visuais_objetos_fase(int frame_atual) {
 
     int poly_slot = 1;
 
+    //desenha espinhos fixos da etapa ativa
     for (int i = 0; i < num_espinhos; i++) {
         EspinhoFase *e = &espinhos[i];
         int etapa_do_espinho = (e->py >= 240) ? 0 : 1;
@@ -427,6 +425,7 @@ void atualizar_visuais_objetos_fase(int frame_atual) {
         }
     }
 
+    //desenha marcadores ou espinhos ativos das armadilhas
     for (int i = 0; i < num_espinhos_temp; i++) {
         EspinhoTemporario *e = &espinhos_temp[i];
         int etapa_do_espinho = (e->marcador_y >= 240) ? 0 : 1;
@@ -480,12 +479,14 @@ void atualizar_visuais_objetos_fase(int frame_atual) {
       }
     }
 
+    //desativa os slots de poligonos de espinhos nao utilizados nesta metade
     for (int p = poly_slot; p <= 9; p++) {
         atpo(0, p, 0, POL_RETANGULO);
     }
 
     desenhar_ave_robo(offset_y, frame_atual);
 
+    //atualiza sprites dos inimigos patrulheiros
     for (int i = 0; i < MAX_PATRULHAS_FASE; i++) {
         if (i >= num_patrulhas || !patrulhas[i].ativo) {
             atsp(SPRITE_PATRULHA_BASE + i, 0, 0);
@@ -505,6 +506,7 @@ void atualizar_visuais_objetos_fase(int frame_atual) {
         }
     }
 
+    //atualiza sprites dos bugs coletaveis e sua animacao de coleta
     for (int i = 0; i < num_bugs; i++) {
         BugFase *b = &bugs[i];
         int sy = b->py - offset_y;
@@ -534,6 +536,7 @@ void atualizar_visuais_objetos_fase(int frame_atual) {
         }
     }
 
+    //atualiza os 5 sprites que formam o BotDog em movimento
     if (botdog_ativa) {
         int sy = botdog_y - offset_y;
         int slot_base = ((botdog_frames / 6) & 1) ? SLOT_BOTDOG1_BASE : SLOT_BOTDOG0_BASE;
@@ -564,6 +567,7 @@ int mapa_parede_pixel(int x, int y) {
     return obter_paredes_fase(fase_atual)[y][x] != 0;
 }
 
+//atualiza os sprites das aves atiradoras e os poligonos de seus tiros
 void desenhar_ave_robo(int offset_y, int frame_atual) {
     for (int i = 0; i < MAX_AVES_FASE; i++) {
         if (i >= num_aves || !aves[i].ativo || aves[i].etapa != etapa_fase) {
@@ -591,7 +595,7 @@ void desenhar_ave_robo(int offset_y, int frame_atual) {
         possp(c->sprite_id, c->x + recuo, sy);
         atsp(c->sprite_id, flip_ave, 1);
 
-        /* Polígono do tiro ou da explosão desta ave */
+        //desenha explosao ao atingir parede/escudo ou o projetil em voo
         if (c->explosao_frames > 0) {
             int t  = 8 - c->explosao_frames;
             int s  = 4 + t * 2;
@@ -619,6 +623,7 @@ void desenhar_ave_robo(int offset_y, int frame_atual) {
     }
 }
 
+//reconstroi toda a cena grafica da fase
 void restaurar_cena_fase_atual(void) {
     ocultar_todos_sprites_e_poligonos();
     carregar_slots_objetos_jogo();
@@ -633,6 +638,7 @@ void restaurar_cena_fase_atual(void) {
     prior(0);
 }
 
+//inicializa o estado completo de uma fase
 void carregar_fase(int indice_fase, int reinicializar_bugs) {
     if (indice_fase < 0) indice_fase = 0;
     if (indice_fase > 2) indice_fase = 2;

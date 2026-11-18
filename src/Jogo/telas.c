@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 #include <unistd.h>
 #include "jogo.h"
@@ -10,6 +9,7 @@
 #include "catDead.h"
 #include "brilhos.h"
 
+//envia os 76.800 pixels de uma tela de fundo para a ram
 static void desenhar_background_dados(const uint8_t *dados) {
     for (int i = 0; i < BG_TAMANHO_RAM; i++) {
         btile(i, dados[i]);
@@ -28,6 +28,7 @@ static void desenhar_bg_thecat(void) { desenhar_background_dados(bg_thecat_dados
 static void desenhar_bg_vitoria(void) { desenhar_background_dados(bg_vitoria_dados); }
 static void desenhar_bg_creditos(void) { desenhar_background_dados(bg_creditos_dados); }
 
+//converte letra/numero ASCII para o indice no array
 static int obter_indice_char(char c) {
     if (c >= 'A' && c <= 'Z') return c - 'A';
     if (c >= 'a' && c <= 'z') return c - 'a';
@@ -35,6 +36,7 @@ static int obter_indice_char(char c) {
     return -1;
 }
 
+//grava 4 blocos 16x16 consecutivos na ram de sprites para formar um sprite 32x32
 static void carregar_sprite32_na_ram(const uint8_t pixels[4][256], int offset_slot) {
     for (int s = 0; s < 4; s++) {
         int slot_ram = offset_slot + s;
@@ -44,6 +46,7 @@ static void carregar_sprite32_na_ram(const uint8_t pixels[4][256], int offset_sl
     }
 }
 
+//posiciona e exibe um sprite 32x32 montado a partir de 4 sprites 16x16
 static void exibir_sprite32_na_tela(int offset_slot, int x, int y, int id_sprite_base) {
     int idx = 0;
     for (int r = 0; r < 2; r++) {
@@ -57,6 +60,7 @@ static void exibir_sprite32_na_tela(int offset_slot, int x, int y, int id_sprite
     }
 }
 
+//oculta os 4 sub-sprites que compoem um sprite 32x32
 static void esconder_sprite32_da_tela(int id_sprite_base) {
     for (int i = 0; i < 4; i++) {
         atsp(id_sprite_base + i, 0, 0);
@@ -82,6 +86,7 @@ static void exibir_cat4inicio_na_tela(int x, int y, int id_base) { exibir_sprite
 #define exibir_cat3menu_na_tela exibir_cat3inicio_na_tela
 #define exibir_cat4menu_na_tela exibir_cat4inicio_na_tela
 
+//carrega os icones dos botoes da tela de pause na ram
 static void carregar_todos_botoes_na_ram(void) {
     for (int p = 0; p < 256; p++) {
         wrsp((CLOSE_OFFSET * 256) + p, close_pixels[0][p]);
@@ -94,6 +99,7 @@ static void exibir_close_na_tela(int x, int y, int sp_id) { rgsp(sp_id, CLOSE_OF
 static void exibir_play_na_tela(int x, int y, int sp_id) { rgsp(sp_id, PLAY_OFFSET); possp(sp_id, x, y); atsp(sp_id, 0, 1); }
 static void exibir_replay_na_tela(int x, int y, int sp_id) { rgsp(sp_id, REPLAY_OFFSET); possp(sp_id, x, y); atsp(sp_id, 0, 1); }
 
+//carrega os 7 frames de fumaca usados na animacao de morte do gato
 static void carregar_todos_smokes_na_ram(void) {
     for (int p = 0; p < 256; p++) {
         wrsp((SMOKE0_OFFSET * 256) + p, smoke0_pixels[0][p]);
@@ -111,8 +117,9 @@ static void exibir_smoke_frame(int frame, int x, int y, int sp_id) {
     rgsp(sp_id, SMOKE0_OFFSET + frame);
     possp(sp_id, x, y);
     atsp(sp_id, 0, 1);
-}
+} 
 
+//carrega os sprites de brilho usados no portal e na tela de ranking
 static void carregar_todos_brilhos_na_ram(void) {
     for (int p = 0; p < 256; p++) {
         wrsp((BRILHO0_OFFSET * 256) + p, brilho0_pixels[0][p]);
@@ -130,37 +137,32 @@ static void exibir_brilho_por_indice(int tipo_brilho, int x, int y, int sp_id) {
     atsp(sp_id, 0, 1);
 }
 
+//desativa todos os 32 sprites e 16 poligonos antes de trocar de tela
 void ocultar_todos_sprites_e_poligonos(void) {
     for (int i = 0; i < 32; i++) atsp(i, 0, 0);
     for (int p = 0; p < 16; p++) atpo(0, p, 0, POL_RETANGULO);
 }
 
-void pintar_bloco_8x8_solido(int tx, int ty, uint8_t cor) {
-    if (tx < 0 || tx >= TILES_X || ty < 0 || ty >= VIEW_TILES_Y) return;
-    int base_y = ty * 8;
-    int base_x = tx * 8;
-    for (int py = 0; py < 8; py++) {
-        int addr = (base_y + py) * SCREEN_W + base_x;
-        for (int px = 0; px < 8; px++) btile(addr + px, cor);
-    }
-}
-
+//pinta todo o background com uma unica cor
 void preencher_background_pixel(uint8_t cor) {
     bscroll(0, 0);
     for (int i = 0; i < TOTAL_PIXELS_BG; i++) btile(i, cor);
 }
 
+//grava um padrao 16x16 em um slot especifico da ram
 static void gravar_padrao_16x16(int slot, const uint8_t *pixels) {
     int end_base = slot * 256;
     for (int i = 0; i < 256; i++) wrsp(end_base + i, pixels[i]);
 }
 
+//carrega os digitos 0 a 9 nos slots 0 a 9 da ram
 static void carregar_digitos_0_a_9_na_ram(void) {
     for (int d = 0; d < 10; d++) {
         gravar_padrao_16x16(d, fonte_pixels[26 + d]);
     }
 }
 
+//exibe um numero formatado com 4 digitos
 static void exibir_numero_4_digitos(int valor, int x_inicial, int y, int sp_id_base) {
     if (valor < 0) valor = 0;
     if (valor > 9999) valor = 9999;
@@ -179,13 +181,14 @@ static void exibir_numero_4_digitos(int valor, int x_inicial, int y, int sp_id_b
     }
 }
 
+//carrega o primeiro frame das 3 skins de gato para exibicao nas telas de selecao e ranking
 static void carregar_3_skins_preview(int s0, int s1, int s2) {
     gravar_padrao_16x16(s0, gato_skins_pixels[0][0]);
     gravar_padrao_16x16(s1, gato_skins_pixels[1][0]);
     gravar_padrao_16x16(s2, gato_skins_pixels[2][0]);
 }
 
-/* 1. TELA INICIAL */
+//tela inicial
 void carregar_recursos_tela_inicial(void) {
     ocultar_todos_sprites_e_poligonos();
     preencher_background_pixel(COR_TELA_INIT);
@@ -225,7 +228,7 @@ int atualizar_tela_inicial(int frame_atual) {
     return 1;
 }
 
-/* 2. TELA MENU */
+//menu
 void carregar_menu(void) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
@@ -249,6 +252,7 @@ void carregar_menu(void) {
     prior(0);
 }
 
+//Animacao do gato da tela de play
 void atualizar_animacao_menu(int frame_menu) {
     static const uint8_t CORES_PISCA[4] = { 0x4A, 0x6E, 0x93, 0x6E };
     uint8_t cor_pisca = CORES_PISCA[(frame_menu / 12) % 4];
@@ -268,7 +272,8 @@ void atualizar_animacao_menu(int frame_menu) {
 static const int SKIN_POS_X[3] = {29, 59, 89};
 static const int SKIN_POS_Y    = 120;
 
-void carregar_tela_the_cat(void) {
+//selecionar skin
+void carregar_tela_cat(void) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
     desenhar_bg_thecat();
@@ -283,7 +288,8 @@ void carregar_tela_the_cat(void) {
     prior(0);
 }
 
-void atualizar_tela_the_cat(int frame_atual, int skin_sel) {
+//Mudanca de cores dos poligonos na tela de escolha de skin
+void atualizar_tela_cat(int frame_atual, int skin_sel) {
     static const uint8_t CORES_SEL[4] = { 0xFC, 0x93, 0x6E, 0x93 };
     uint8_t cor_ativa = CORES_SEL[(frame_atual / 10) % 4];
 
@@ -300,6 +306,7 @@ void atualizar_tela_the_cat(int frame_atual, int skin_sel) {
     }
 }
 
+//introducao do jogo
 void carregar_tela_inicio_game(void) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
@@ -311,6 +318,7 @@ void carregar_tela_inicio_game(void) {
     prior(0);
 }
 
+//intro das fases
 void carregar_tela_intro_fase(int indice_fase) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
@@ -328,6 +336,7 @@ void carregar_tela_intro_fase(int indice_fase) {
     prior(0);
 }
 
+//Animacao da tela de introducao
 void atualizar_tela_intro_fase(int frame_atual) {
     if (((frame_atual / 20) % 2) == 0) {
         exibir_cat3menu_na_tela(205, 37, 0);
@@ -335,6 +344,8 @@ void atualizar_tela_intro_fase(int frame_atual) {
         exibir_cat4menu_na_tela(205, 37, 0);
     }
 }
+
+//tela de pause
 
 static const int PAUSE_POLY_X[3] = {24, 54, 84};
 static const int PAUSE_POLY_Y = 80;
@@ -355,6 +366,7 @@ void carregar_tela_pause(void) {
     prior(0);
 }
 
+//Animacao dos pligonos da tela de pause
 void atualizar_tela_pause(int frame_atual, int opcao_sel) {
     static const uint8_t CORES_PISCA[4] = { 0xFC, 0x93, 0x4A, 0x93 };
     const uint8_t COR_PARADO = 0x49;
@@ -367,6 +379,7 @@ void atualizar_tela_pause(int frame_atual, int opcao_sel) {
     }
 }
 
+//tela de vitoria
 void carregar_tela_vitoria(int pontos_fase) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
@@ -377,6 +390,7 @@ void carregar_tela_vitoria(int pontos_fase) {
     prior(0);
 }
 
+//tela de derrota
 void carregar_tela_derrota(int pontos_fase) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
@@ -387,6 +401,7 @@ void carregar_tela_derrota(int pontos_fase) {
     prior(0);
 }
 
+//tela de ranking
 #define SLOT_RANK_BRILHO_DIR 18
 #define SLOT_RANK_BRILHO_ESQ 19
 
@@ -467,12 +482,16 @@ void atualizar_tela_rank(int frame_atual) {
     atsp(31, 0, 1);
 }
 
+//tela de creditos
+
 void carregar_tela_creditos(void) {
     ocultar_todos_sprites_e_poligonos();
     bscroll(0, 0);
     desenhar_bg_creditos();
     prior(0);
 }
+
+//animacao no joguinho
 
 void animar_morte_gato(int px, int py) {
     carregar_todos_smokes_na_ram();
@@ -484,6 +503,7 @@ void animar_morte_gato(int px, int py) {
     atsp(0, 0, 0);
 }
 
+//Animacao no portal de saida das fases
 void animar_entrada_porta(int px, int py) {
     carregar_todos_brilhos_na_ram();
     const int seq[5] = { 0, 1, 2, 1, 0 };

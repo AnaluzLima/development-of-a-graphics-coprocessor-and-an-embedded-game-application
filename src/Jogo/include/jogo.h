@@ -37,7 +37,7 @@
 typedef enum {
     ESTADO_TELA_INICIAL = 0,
     ESTADO_MENU_INICIAL,
-    ESTADO_TELA_THE_CAT,
+    ESTADO_TELA_CAT,
     ESTADO_TELA_INICIO_GAME,
     ESTADO_TELA_INTRO_FASE,
     ESTADO_JOGO_RODANDO,
@@ -259,13 +259,12 @@ void metricas_registrar_frame(double duracao_segundos);
 //telas
 void ocultar_todos_sprites_e_poligonos(void);
 void preencher_background_pixel(uint8_t cor);
-void pintar_bloco_8x8_solido(int tx, int ty, uint8_t cor);
 void carregar_recursos_tela_inicial(void);
 int atualizar_tela_inicial(int frame_atual);
 void carregar_menu(void);
 void atualizar_animacao_menu(int frame_menu);
-void carregar_tela_the_cat(void);
-void atualizar_tela_the_cat(int frame_atual, int skin_sel);
+void carregar_tela_cat(void);
+void atualizar_tela_cat(int frame_atual, int skin_sel);
 void carregar_tela_inicio_game(void);
 void carregar_tela_intro_fase(int indice_fase);
 void atualizar_tela_intro_fase(int frame_atual);

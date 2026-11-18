@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "jogo.h"
 
+//Declaracao das variaveis
 int skin_selecionada = SKIN_GATO_PRETO;
 int fase_atual = 0;
 int pontos_fase = 0;
@@ -13,13 +14,17 @@ int vel_ty = 0;
 int flip_jogador = 0;
 int mortes_fase = 0;
 
+static int bateu_patrulha = 0;
+
+//Identifica a colisao entre retangulos
 static int retangulos_colidem(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2) {
     return (x1 < x2 + w2) && (x1 + w1 > x2) && (y1 < y2 + h2) && (y1 + h1 > y2);
 }
 
-static int bateu_patrulha = 0;
-
+//Identifica a colisao com paredes/aves/bolhas
 static int colisao_parede(int px, int py) {
+
+    //Define quais tiles sao ocupados pelo personagem
     int tx_esq = px / 8;
     int tx_dir = (px + 15) / 8;
     int ty_sup = py / 8;
@@ -36,7 +41,7 @@ static int colisao_parede(int px, int py) {
         return 1;
     }
 
-    /* Colisão 16x16 com as Aves */
+    //Colisao com aves
     for (int i = 0; i < num_aves; i++) {
         if (aves[i].ativo) {
             if (retangulos_colidem(px, py, 16, 16, aves[i].x, aves[i].y, 16, 16)) {
@@ -45,7 +50,7 @@ static int colisao_parede(int px, int py) {
         }
     }
 
-    /* Colisão 16x16 com as Patrulhas */
+    //Colisao com bolhas/patrulhas
     for (int i = 0; i < num_patrulhas; i++) {
         if (patrulhas[i].ativo) {
             if (retangulos_colidem(px, py, 16, 16, patrulhas[i].px, patrulhas[i].py, 16, 16)) {
@@ -58,6 +63,7 @@ static int colisao_parede(int px, int py) {
     return 0;
 }
 
+//Identifica colisao com um ponto
 int colisao_ponto(int px, int py, int w, int h) {
     for (int y = py; y < py + h; y++)
         for (int x = px; x < px + w; x++)
@@ -69,7 +75,7 @@ void executar_estado_jogando(int espaco_segurado, int frame_atual) {
     const int PASSO_PX = 8;
     bateu_patrulha = 0;
 
-    // Movimentação contínua
+    //Movimentação contínua
     if (!espaco_segurado && (vel_tx != 0 || vel_ty != 0)) {
         int prox_x = jogador_px + vel_tx * PASSO_PX;
         int prox_y = jogador_py + vel_ty * PASSO_PX;
@@ -92,10 +98,10 @@ void executar_estado_jogando(int espaco_segurado, int frame_atual) {
     else if (vel_tx < 0) flip_jogador = 0; //para a esquerda
     else if (vel_tx > 0) flip_jogador = 1; //Para a direita
 
-    // transição de etapa
+    //Transicao de etapa
     atualizar_etapa_camera(jogador_py);
 
-    //coordenada Y relativa à metade ativa da tela
+    //Coordenada Y relativa à metade ativa da tela
     int sy = jogador_py - ((etapa_fase == 0) ? 240 : 0);
     if (sy < 0) sy = 0;
     if (sy > 224) sy = 224;
@@ -104,7 +110,7 @@ void executar_estado_jogando(int espaco_segurado, int frame_atual) {
     possp(SPRITE_JOGADOR, jogador_px, sy);
     atsp(SPRITE_JOGADOR, flip_jogador, 1);
 
-    // rastro amarelo
+    //Rastro amarelo
     if (vel_tx != 0 || vel_ty != 0) {
         if (vel_ty != 0) {
             int trail_y1 = (vel_ty < 0) ? (sy + 16) : (sy - 6);
@@ -138,7 +144,7 @@ void executar_estado_jogando(int espaco_segurado, int frame_atual) {
         atpo(0, 13, 0, POL_RETANGULO);
     }
 
-    // Espinhos Temporários
+    //Espinhos Temporarios
     for (int i = 0; i < num_espinhos_temp; i++) {
         EspinhoTemporario *e = &espinhos_temp[i];
         int horiz = (e->tipo_flip == POL_TRI_CIMA || e->tipo_flip == POL_TRI_BAIXO);
@@ -287,6 +293,7 @@ void executar_estado_jogando(int espaco_segurado, int frame_atual) {
     atualizar_visuais_objetos_fase(frame_atual);
 }
 
+//Realiza a animacao das aves
 void atualizar_ave_robo(void) {
     for (int a = 0; a < num_aves; a++) {
         AveRobo *c = &aves[a];
@@ -329,10 +336,12 @@ void atualizar_ave_robo(void) {
     }
 }
 
+//Identifica se o jogador terminou a fase
 int posicao_jogador_no_endgame(void) {
     return retangulos_colidem(jogador_px, jogador_py, 16, 16, portal_px, portal_py, 14, 14);
 }
 
+//Identifica colisoes com componentes fatais
 int checar_colisoes(int espaco_segurado) {
     //colisao com espinhos basicos
     for (int i = 0; i < num_espinhos; i++) {
