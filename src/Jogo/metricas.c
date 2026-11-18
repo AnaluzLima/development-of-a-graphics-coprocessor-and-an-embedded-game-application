@@ -78,7 +78,7 @@ static int registro_ranking_valido(const RegistroRanking *r) {
 //ordena o top 3 do ranking em ordem decrescente de pontuação
 static void ordenar_ranking(void) {
     for (int i = 0; i < MAX_RANKING; i++) {
-        if (!rankinvalido(&ranking[i])) {
+        if (!registro_ranking_valido(&ranking[i])) {
             ranking[i].valido = 0;
             ranking[i].pontos_totais = 0;
             ranking[i].skin_id = SKIN_GATO_PRETO;
@@ -113,7 +113,7 @@ void carregar_ranking_arquivo(void) {
     size_t n = fread(lidos, sizeof(RegistroRanking), MAX_RANKING, f);
     fclose(f);
     for (size_t i = 0; i < n; i++) {
-        if (rankinvalido(&lidos[i])) ranking[i] = lidos[i];
+        if (registro_ranking_valido(&lidos[i])) ranking[i] = lidos[i];
     }
     ordenar_ranking();
 }
