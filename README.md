@@ -781,10 +781,10 @@ Durante a partida, a tecla `Esc` abre a tela de pausa, com as opções de sair, 
 A movimentação segue o estilo **Tomb of the Mask**: o gato **desliza continuamente** em uma direção até encontrar um obstáculo.
 
 - **Entrada:** uma thread dedicada lê os dispositivos `/dev/input/event*` e protege o estado do teclado com *mutex*. A lógica lê uma cópia por quadro com `ler_botoes_estado()`.
-- **Nova direção só com o gato parado:** enquanto `g_vel_tx`/`g_vel_ty` forem diferentes de zero, novas direções são descartadas.
-- **Passo de 8 px por quadro.** Se o próximo passo bateria em parede, o gato avança **pixel a pixel** até encostar e então para (`g_vel = 0`).
+- **Nova direção só com o gato parado:** enquanto `vel_tx`/`vel_ty` forem diferentes de zero, novas direções são descartadas.
+- **Passo de 8 px por quadro.** Se o próximo passo bateria em parede, o gato avança **pixel a pixel** até encostar e então para (`vel = 0`).
 - **Segurar `Espaço`:** o gato fica parado e troca para o segundo quadro de sprite. Nesse estado, projéteis das aves são destruídos em vez de matar.
-- **Orientação:** o *flip* do sprite acompanha a direção (`g_flip_jogador`).
+- **Orientação:** o *flip* do sprite acompanha a direção (`flip_jogador`).
 - **Rastro:** dois retângulos amarelos são desenhados atrás do gato enquanto ele desliza.
 - **Câmera por etapas:** cada mapa tem 320×480 px, maior que a tela lógica (320×240). O mapa é dividido em duas metades: **etapa inferior** (Y 240–479, onde o gato começa) e **etapa superior** (Y 0–239). Ao cruzar Y = 240, `atualizar_etapa_camera()` recarrega o background (`carregar_fundo_etapa()`, com 76.800 `btile`) e os objetos são multiplexados por metade.
 
