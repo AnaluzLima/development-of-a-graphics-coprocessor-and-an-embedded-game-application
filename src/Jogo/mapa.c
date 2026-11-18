@@ -653,15 +653,9 @@ void carregar_fase(int indice_fase, int reinicializar_bugs) {
     configurar_layout_fase(indice_fase, reinicializar_bugs);
 
     botdog_ativa = 0;
-    botdog_disparada = 0;
     botdog_dir = 1;
     botdog_x = -80;
     tremor_tela = 0;
-
-    dog_tiro_ativo = 0;
-    dog_timer = 0;
-    dog_anim_frames = 0;
-    dog_explosao_frames = 0;
 
     portal_fugiu = 0;
 
