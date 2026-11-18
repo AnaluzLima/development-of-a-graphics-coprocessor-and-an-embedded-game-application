@@ -24,13 +24,59 @@
 <details>
   <summary><h2>SUMÁRIO</h2></summary>
 
-//colocar no final
+  - [1. Sobre o Projeto](#1-sobre-o-projeto)
+    - [1.1. Premissa do jogo](#11-premissa-do-jogo)
+    - [1.2. Requisitos funcionais e não funcionais](#12-requisitos-funcionais-e-não-funcionais)
+  - [2. Arquitetura do Coprocessador](#2-arquitetura-do-coprocessador)
+    - [2.1. Módulos Gráficos em Verilog](#21-módulos-gráficos-em-verilog)
+      - [2.1.1. Motor de background](#211-motor-de-background)
+      - [2.1.2. Motor de Sprites](#212-motor-de-sprites)
+      - [2.1.3. Rasterizador de Polígonos em Pipeline](#213-rasterizador-de-polígonos-em-pipeline)
+      - [2.1.4. Unidade de Controle](#214-unidade-de-controle)
+      - [2.1.5. Fila de Instruções](#215-fila-de-instruções)
+      - [2.1.6. ISA (Instruction Set Architecture)](#216-isa-instruction-set-architecture)
+      - [2.1.7. Compositor de Camadas](#217-compositor-de-camadas)
+      - [2.1.8. Top-Level](#218-top-level)
+      - [2.1.9. Endereço VGA](#219-endereço-vga)
+      - [2.1.10. Buffers de Vídeo](#2110-buffers-de-vídeo)
+    - [2.2. Diagrama de Alto Nível](#22-diagrama-de-alto-nível)
+    - [2.3. Mapeamento de Memória (MMIO) e Entradas/Saídas Paralelas (PIOs)](#23-mapeamento-de-memória-mmio-e-entradassaídas-paralelas-pios)
+    - [2.4. Justificativa das Alterações Arquiteturais](#24-justificativa-das-alterações-arquiteturais)
+    - [2.5. Recursos Utilizados na FPGA (Síntese Quartus Prime)](#25-recursos-utilizados-na-fpga-síntese-quartus-prime)
+  - [3. Driver Assembly](#3-driver)
+    - [3.1. Mapeamento de Memória (MMIO)](#31-mapeamento-de-memória-mmio)
+    - [3.2. Funções](#32-funções)
+    - [3.3. Restrições de Uso](#33-restrições-de-uso)
+  - [4. Threads](#4-threads)
+    - [4.1. Modelo de Execução Multithread](#41-modelo-de-execução-multithread)
+    - [4.2. Thread Principal](#42-thread-principal)
+    - [4.3. Thread Dedicada de Entrada USB](#43-thread-dedicada-de-entrada-usb)
+    - [4.4. Sincronização entre Threads](#44-sincronização-entre-threads)
+  - [5. Tomb of The Desk](#5-jogo)
+    - [5.1. Fluxo de telas](#51-fluxo-de-telas)
+    - [5.2. Mecânica de movimentação](#52-mecânica-de-movimentação)
+    - [5.3. Colisões](#53-colisões)
+    - [5.4. Entidades do jogo, comportamento e animação](#54-entidades-do-jogo-comportamento-e-animação)
+    - [5.5. As 3 fases](#55-as-3-fases)
+    - [5.6. Como funciona a pontuação](#56-como-funciona-a-pontuação)
+    - [5.7. Persistência de dados para o ranking](#57-persistência-de-dados-para-o-ranking)
+    - [5.8. Conversão de Assets (PNG para `.h`)](#58-conversão-de-assets-png-para-h)
+    - [5.9. Funções empregadas](#59-funções-empregadas)
+  - [6. Testes e Análise de Desempenho](#6-testes-e-analise)
+    - [6.1. Teste Individualizado das Instruções e Resultado das Flags de Status](#61-teste-individualizado-das-instruções-e-resultado-das-flags-de-status)
+    - [6.2. Teste de Estresse no Coprocessador e Análise do Desempenho](#62-teste-de-estresse-no-coprocessador-e-análise-do-desempenho)
+    - [6.3. Testes no Jogo e Telemetria em Tempo Real](#63-testes-no-jogo-e-telemetria-em-tempo-real)
+    - [6.4. Análise de Desempenho Geral](#64-análise-de-desempenho-geral)
+  - [7. Tecnologias Utilizadas](#7-tecnologias-utilizadas)
+  - [8. Como compilar e Executar](#8-instalacao)
+  - [9. Considerações Finais](#9-considerações-finais)
+  - [10. Referências e Inspirações](#10-referencias-inspiracoes)
 
 </details>
 
 # 1. Sobre o Projeto
 
-Este projeto entrega o **produto final do console digital dedicado** proposto na matéria de Sistemas Digitais (UEFS, 2026.2): um jogo completo, escrito em **linguagem C**, que roda no processador **ARM (HPS)** da placa **DE1-SoC** sob Linux embarcado e exibe a imagem em um monitor **VGA**, controlado pelo **teclado USB** conectado à placa.
+Este projeto entrega o **produto final do console digital dedicado** proposto na matéria de Sistemas Digitais do curso de Engenharia de Computação da Universidade Estadual de Feira de Santana (UEFS, 2026.2): um jogo completo, escrito em **linguagem C**, que roda no processador **ARM (HPS)** da placa **DE1-SoC** sob Linux embarcado e exibe a imagem em um monitor **VGA**, controlado pelo **teclado USB** conectado à placa.
 
 O sistema é dividido em três camadas:
 
@@ -65,12 +111,12 @@ A mecânica central é a movimentação por **deslizamento**: ao receber uma dir
 
 | Requisito | Situação |
 | :---- | :---- |
-| Implementar a mecânica do jogo, incluindo pontuação, movimentação de objetos e eliminação de agrupamentos (coleta de bugs) | ✅ |
+| Implementar a mecânica do jogo, incluindo pontuação, movimentação de objetos e eliminação de agrupamentos | ✅ |
 | Estruturar a lógica como máquina de estados, contemplando abertura, partida, pausa e fim de jogo | ✅ |
 | Ler o teclado USB ou o mouse USB conectado à placa DE1-SoC | ✅ |
 | Atualizar a cena por meio dos recursos do coprocessador (tiles, sprites, polígonos e paletas) | ✅ |
 
-### **Driver (Assembly ARM)**
+### Driver (Assembly ARM)
 
 | Requisito | Situação |
 | :---- | :---- |
@@ -87,7 +133,7 @@ A mecânica central é a movimentação por **deslizamento**: ao receber uma dir
 | Teste: partida completa, com pontuação e eliminação de agrupamentos | ✅  registrado na seção 6 |
 | Teste: pausa, reinício e fim de jogo | ✅  registrado na seção 6 |
 | Teste: entradas simultâneas e comandos inválidos | ✅  registrado na seção 6 |
-| Teste: medição de latência de comandos e taxa de atualização | ✅  registrado na seção 6 (o jogo imprime `[METRICAS]` a cada 1 s) |
+| Teste: medição de latência de comandos e taxa de atualização | ✅  registrado na seção 6 |
 
 ### Ambiente de execução
 
@@ -110,8 +156,8 @@ A mecânica central é a movimentação por **deslizamento**: ao receber uma dir
 
 | Requisito | Situação |
 | :---- | :---- |
-| Lógica do jogo com no mínimo 30 atualizações por segundo | ✅ Laço com `usleep(16000)` (\~60/s). (Confirmação com as medições) |
-| Responder a comandos de entrada em no máximo 100 ms | ✅ Thread dedicada ao teclado. (Confirmação com as medições) |
+| Lógica do jogo com no mínimo 30 atualizações por segundo | ✅ |
+| Responder a comandos de entrada em no máximo 100 ms | ✅ Thread dedicada ao teclado |
 | Manter a imagem estável, sem perda de sincronismo, durante toda a execução | ✅ |
 
 ### O desenvolvimento do coprocessador gráfico feito nas fases anteriores tinham os seguintes requisitos:
@@ -177,12 +223,12 @@ A arquitetura final do coprocessador gráfico é estruturada em blocos funcionai
 
 ## 2.1.1. Motor de background
 
-O Motor de Background gerencia o plano de fundo da cena combinando **endereçamento individual por pixel** na memória de vídeo dedicada (`ram_map`) com **deslocamento matricial por blocos (tiles de 8x8)**. Essa abordagem híbrida permite renderizar cenários totalmente texturizados na resolução lógica de $320\times 240$ pixels sem abrir mão da rolagem de câmera (*scrolling*) acelerada por hardware.
+O Motor de Background gerencia o plano de fundo da cena combinando **endereçamento individual por pixel** na memória de vídeo dedicada (`ram_map`) com **deslocamento matricial por blocos (tiles de 8x8)**. Essa abordagem híbrida permite renderizar cenários totalmente texturizados na resolução lógica de $320\times 240$ pixels sem abrir mão da rolagem de câmera.
 
 * **Memória de Background por Pixel (`ram_map`):** Instanciada em blocos de memória interna M10K com capacidade de **76.800 palavras de 8 bits** ($320 \times 240 = 76.800\text{ bytes}$, totalizando $614.400\text{ bits}$). Cada endereço linear de 17 bits (`0` a `76.799`) armazena a cor RGB332 de um pixel específico do cenário.  
 * **Processamento de Instruções (`qual_op`):**  
   * **`BTILE` (`qual_op[1] = 1`):** Extrai do barramento de dados o endereço linear de 17 bits (`dados[24:8]`) e a cor RGB332 de 8 bits (`dados[7:0]`), habilitando o pulso de escrita síncrona (`wr_en`) na porta de gravação da `ram_map`.  
-  * **`BSCROLL` (`qual_op[0] = 1`):** Atualiza os registradores de deslocamento horizontal `scroll_x` (6 bits, de `0` a `39` blocos) e vertical `scroll_y` (5 bits, de `0` a `29` blocos). Para evitar cortes visuais (*tearing* no deslocamento do cenário), os valores configurados são transferidos para os registradores ativos (`scroll_x_atrasado` e `scroll_y_atrasado`) de forma sincronizada com o sinal de apagamento vertical (`!vsync`).  
+  * **`BSCROLL` (`qual_op[0] = 1`):** Atualiza os registradores de deslocamento horizontal `scroll_x` (6 bits, de `0` a `39` blocos) e vertical `scroll_y` (5 bits, de `0` a `29` blocos). Para evitar cortes visuais, os valores configurados são transferidos para os registradores ativos (`scroll_x_atrasado` e `scroll_y_atrasado`) de forma sincronizada com o sinal de apagamento vertical (`~vsync`).  
 * **Cálculo de Rolagem Circular (Wrap-Around em Hardware):**  
   1. Divide as coordenadas da varredura lógica (`bg_x` e `bg_y`) por 8 através do fatiamento dos bits mais significativos (`col_tile = bg_x[8:3]` e `lin_tile = bg_y[7:3]`), mapeando a tela em uma grade virtual de $40\times 30$ blocos.  
   2. Soma os índices de coluna e linha atuais aos deslocamentos `scroll_x_atrasado` e `scroll_y_atrasado`, aplicando aritmética modular ($\pmod{40}$ na horizontal e $\pmod{30}$ na vertical) para realizar o *wrap-around* automático nas bordas do buffer circular.  
@@ -207,7 +253,7 @@ O Rasterizador de Polígonos é uma unidade de processamento vetorial paralela r
 
 ### Diagnóstico do Gargalo de Timing e Artefatos no VGA
 
-Na arquitetura inicial, o cálculo completo de pertinência do pixel era implementado como uma **única cadeia combinacional longa** entre o banco de registradores e o registrador de saída (`cor_reg`). Quando o suporte a rotação/espelhamento (`flip`) foi introduzido, a lógica precisou resolver dinamicamente as coordenadas dos três vértices ($A,B,C$) por meio de multiplexadores de 12 combinações (`tipo` $\times$ `flip`) e realizar subtrações vetoriais *antes* de alimentar os **96 multiplicadores** (16 polígonos $\times$ 3 arestas $\times$ 2 produtos por aresta).
+Na arquitetura inicial, o cálculo completo de pertinência do pixel era implementado como uma **única cadeia combinacional longa** entre o banco de registradores e o registrador de saída. Quando o suporte a rotação/espelhamento (`flip`) foi introduzido, a lógica precisou resolver dinamicamente as coordenadas dos três vértices ($A,B,C$) por meio de multiplexadores de 12 combinações (`tipo` $\times$ `flip`) e realizar subtrações vetoriais *antes* de alimentar os **96 multiplicadores** (16 polígonos $\times$ 3 arestas $\times$ 2 produtos por aresta).
 
 A análise temporal estática no *Quartus Timing Analyzer* revelou que esse caminho crítico exigia **\~25,8 ns** para estabilizar no pior caso do silício, violando o período do clock de **50 MHz (20 ns)** com um *slack* negativo de **$-5,85\text{ ns}$** (frequência máxima limitada a $38,7\text{ MHz}$). Como resultado, nas bordas de captura do clock de 50 MHz, o registrador de saída amostrava resultados intermediários ainda instáveis dos blocos DSP, gerando linhas horizontais corrompidas e *glitches* visuais no monitor VGA sempre que polígonos complexos eram renderizados.
 
@@ -223,7 +269,7 @@ Para eliminar a violação de *timing* sem reduzir o número de polígonos nem c
 
    * **Motivação:** Os vértices ($A,B,C$) e os vetores das arestas de um polígono dependem exclusivamente da sua configuração no banco de registradores (alterada poucas vezes por quadro pela CPU), e **não** da coordenada do pixel atual. Recalculá-los a cada pixel desperdiçava atraso combinacional na entrada dos multiplicadores.
    * **Implementação e Registradores:** Um bloco combinacional resolve o `case` de `tipo × flip` para encontrar os três vértices `(vx_a, vy_a)`, `(bx, by)` e `(cx, cy)` dentro da caixa delimitadora `[A_x, A_x + W] × [A_y, A_y + H]`, e pré-calcula os deltas constantes das três arestas (`a1 = B_x - A_x`, `b1 = B_y - A_y`, `a2 = C_x - B_x`, `b2 = C_y - B_y`, `a3 = A_x - C_x`, `b3 = A_y - C_y`) e os limites máximos (`ax + w`, `ay + h`, `ay + w`). Esses valores são amostrados em registradores intermediários dedicados (`r_vx`, `r_vy`, `r_bx`, `r_by`, `r_cx`, `r_cy`, `r_a1..r_b3`, `r_axw`, `r_ayh`, `r_ayw`, `r_show`, `r_tipo`), entregando operandos limpos e livres de multiplexação diretamente às entradas dos blocos DSP.
-3. **Pipeline Dinâmico por Pixel (`S0` a `S4` — 20 ns por estágio):**
+3. **Pipeline Dinâmico por Pixel (`S0` a `S4` - 20 ns por estágio):**
 
 | Estágio | Registradores Intermediários | Operação Executada no Ciclo (50 MHz) | Ganho de Timing e Sincronismo |
 | :---: | :--- | :--- | :--- |
@@ -233,15 +279,17 @@ Para eliminar a violação de *timing* sem reduzir o número de polígonos nem c
 | **`S3`** | `dentro_q` (`1 bit × 16`) | Combina a flag de visibilidade `r_show` com a forma geométrica selecionada por `r_tipo` (`0 → ret2`, `1 → qua2`, `2..4 → tri2`), consolidando o barramento global `dentro[15:0]`. | Comprime toda a avaliação geométrica de cada polígono em um único bit registrado antes da etapa de arbitragem. |
 | **`S4`** | `hit_reg` (`1 bit`),<br>`cor_reg[7:0]` | Um codificador de prioridade varre `dentro[15:0]` do índice 15 até 0 (garantindo precedência ao menor `ID`: `0 > 1 > ... > 15`), define `poly_sel[3:0]` e seleciona a cor correspondente em um multiplexador direto 16:1 (`cores_flat`), registrando `hit_reg` e `cor_reg`. | Substitui a antiga indexação aritmética (`poly_sel * 50 + 34`) por um barramento plano pré-fatiado (`cores_flat[127:0]`). |
 
-### Compensação de Latência: O Mecanismo de *Lookahead* Espacial (`LOOKAHEAD = 2`)
+### Compensação de Latência
 
-A introdução de $D=5$ estágios de pipeline a 50 MHz implica uma latência total de $5 \times 20\text{ ns} = 100\text{ ns}$ entre a entrada de uma coordenada e a saída da cor correspondente em `draw`. Como o **Compositor** varre a tela a **25 MHz** (avançando 1 pixel a cada $40\text{ ns}$, ou seja, a cada 2 ciclos de 50 MHz), um pipeline convencional atrasaria a renderização dos polígonos em exatamente **2 pixels para a direita** em relação às camadas de Background e Sprites.
+A introdução de $5$ estágios de pipeline a 50 MHz implica uma latência total de $5 \times 20\text{ ns} = 100\text{ ns}$ entre a entrada de uma coordenada e a saída da cor correspondente em `draw`. Como o **Compositor** varre a tela a **25 MHz** (avançando 1 pixel a cada $40\text{ ns}$, ou seja, a cada 2 ciclos de 50 MHz), um pipeline convencional atrasaria a renderização dos polígonos em exatamente **2 pixels para a direita** em relação às camadas de Background e Sprites.
 
 Como a varredura do Compositor é estritamente determinística e sequencial, o estágio `S0` resolve esse deslocamento aplicando um **adiantamento espacial (`LOOKAHEAD = (D - 1) / 2 = 2` pixels)**:
 
 - Quando o Compositor está processando o pixel $P(x,y)$, o rasterizador inicia o cálculo do pixel futuro $P+2$.  
 - Ao longo dos 4 ciclos seguintes de 50 MHz (equivalentes aos 2 ciclos de 25 MHz que o Compositor leva para caminhar até $P+2$), o resultado atravessa os estágios `S0` $\rightarrow$ `S1` $\rightarrow$ `S2` $\rightarrow$ `S3` $\rightarrow$ `S4`.  
 - No exato ciclo em que o Compositor amostra `draw_pol` para gravar o pixel $P+2$ no *Back Buffer*, a saída `draw` entrega a cor exata daquela coordenada. Essa técnica restaurou o alinhamento pixel a pixel com os demais motores e elevou a frequência máxima (*Fmax*) do projeto acima de 50 MHz com *slack* positivo.
+
+<br>
 
 <div align="center">
   <figure>
@@ -392,7 +440,7 @@ O sistema adota uma arquitetura de Double Buffering (Front Buffer e Back Buffer)
 
 # 2.2. Diagrama de Alto Nível
 
-A Figura 2 abaixo apresenta a arquitetura do projeto estruturada em um Diagrama de Alto Nível.
+A Figura 3 abaixo apresenta a arquitetura do projeto estruturada em um Diagrama de Alto Nível.
 
 <div align="center">
   <figure>
@@ -407,7 +455,7 @@ A Figura 2 abaixo apresenta a arquitetura do projeto estruturada em um Diagrama 
 
 # 2.3 Mapeamento de Memória (MMIO) e Entradas/Saídas Paralelas (PIOs)
 
-A comunicação física entre o **HPS (Hard Processor System — ARM Cortex-A9)** e o coprocessador gráfico implementado ocorre por meio da ponte **Lightweight HPS-to-FPGA AXI Master**, configurada no **Platform Designer (Qsys)**. Esse barramento mapeia os sinais de controle e dados do coprocessador diretamente no espaço de endereçamento físico do processador (Memory-Mapped I/O — `MMIO`) a partir do endereço base **`0xFF200000`**.
+A comunicação física entre o **HPS (Hard Processor System - ARM Cortex-A9)** e o coprocessador gráfico implementado ocorre por meio da ponte **Lightweight HPS-to-FPGA AXI Master**, configurada no **Platform Designer (Qsys)**. Esse barramento mapeia os sinais de controle e dados do coprocessador diretamente no espaço de endereçamento físico do processador (Memory-Mapped I/O - `MMIO`) a partir do endereço base **`0xFF200000`**.
 
 ## 2.3.1. Estruturação e Endereçamento dos PIOs no Platform Designer
 
@@ -507,7 +555,7 @@ O driver em Assembly ARMv7-A (32 bits) implementa a camada de comunicação via 
 
 # 3.1. Mapeamento de Memória (MMIO) 
 
-O Linux executa as aplicações com memória virtual, então o driver não pode acessar diretamente o endereço físico da ponte Lightweight HPS-to-FPGA. Para isso, ele abre o dispositivo `/dev/mem` com as flags `O_RDWR` e `O_SYNC` e usa a syscall `mmap2` para mapear uma região de 2 MB a partir do endereço físico `0xFF200000`, armazenando o ponteiro virtual na variável global `ptr_base`. Como os PIOs são registradores de hardware, cujos valores podem mudar a qualquer momento por ação da FPGA, o acesso é feito sem passar pelo cache, de modo que cada leitura e escrita chega diretamente ao registrador e o processador não lê valores desatualizados. Cada PIO é acessado somando-se o seu *offset* (tabela da seção 2.3.1) ao ponteiro base.
+O Linux executa as aplicações com memória virtual, então o driver não pode acessar diretamente o endereço físico da ponte Lightweight HPS-to-FPGA. Para isso, ele abre o dispositivo `/dev/mem` com as flags `O_RDWR` e `O_SYNC` e usa a syscall `mmap2` para mapear uma região de 2 MB a partir do endereço físico `0xFF200000`, armazenando o ponteiro virtual na variável global `ptr_base`. Como os PIOs são registradores de hardware, cujos valores podem mudar a qualquer momento por ação da FPGA, o acesso é feito sem passar pelo cache, de modo que cada leitura e escrita chega diretamente ao registrador e o processador não lê valores desatualizados. Cada PIO é acessado somando-se o seu *offset* ao ponteiro base.
 
 # 3.2. Funções
 
@@ -676,64 +724,69 @@ stateDiagram-v2
 |---|---|---|
 | **Tela inicial** | O gato cai na pasta (`openFile`), a pasta abre e o gato aparece (~230 quadros) | Automática |
 | **Menu** | Botão **PLAY** piscando e gato animado dentro do computador | `Enter` |
-| **The Cat** | Escolha da skin entre os 3 gatos | `←` `→` / `A` `D` / `S`, confirma com `Enter` |
+| **Debugger Cat** | Escolha da skin entre os 3 gatos | `←` `→` / `A` `D`, confirma com `Enter` |
 | **Início do game / Intro da fase** | Tela narrativa de cada fase (`fase01tela`, `fase02tela`, `fase03tela`) | `Enter` |
 | **Jogo rodando** | Fase em andamento | `W A S D` / setas, `Espaço`, `Esc` |
-| **Pausa** | Três botões: **Sair**, **Reiniciar** e **Play** | `←` `→` escolhe, `Enter` confirma, `Esc` volta |
+| **Pausa** | Três botões: **Sair**, **Reiniciar** e **Play** | `←` `→` / `A` `D` escolhe, `Enter` confirma, `Esc` volta |
 | **Vitória** | Pontos da fase | `Enter` |
 | **Derrota** | Pontos da tentativa | `Enter` (volta direto à fase, sem a intro) |
 | **Ranking** | Top 3 com skin e pontos, mais a pontuação total da partida no canto esquerdo | `Enter` |
 
-> **Atalho de depuração:** a tecla `P` avança imediatamente para a próxima tela/fase. Ela existe para testes e deve ser desativada na versão final.
+> **Atalho de depuração:** a tecla `P` avança imediatamente para a próxima tela/fase. Ela existe para depuração e testes.
+
 A seguir, as principais telas do jogo, na ordem em que aparecem para o jogador.
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/telainicial.gif">
     <br>
     <figcaption>
-      <i>Figura x - Tela inicial.</i>
+      <i>Figura 4 - Tela inicial.</i>
     </figcaption>
   </figure>
 </div>
 <br>
+
 A tela seguinte permite escolher a skin do gato que será usada em todas as fases.
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/menu_debuggerCat.gif">
     <br>
     <figcaption>
-      <i>Figura x - Menu inicial e escolha do personagem.</i>
+      <i>Figura 5 - Menu inicial e escolha do personagem.</i>
     </figcaption>
   </figure>
 </div>
 <br>
+
 Durante a partida, a tecla `Esc` abre a tela de pausa, com as opções de sair, reiniciar a fase ou continuar a fase de onde parou.
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/pause.gif">
     <br>
     <figcaption>
-      <i>Figura x - Tela de pausa funcionando.</i>
+      <i>Figura 6 - Tela de pausa funcionando.</i>
     </figcaption>
   </figure>
 </div>
 <br>
 
----
-
 # 5.2. Mecânica de movimentação
 
 A movimentação segue o estilo **Tomb of the Mask**: o gato **desliza continuamente** em uma direção até encontrar um obstáculo.
 
-- **Entrada:** uma thread dedicada (`thread_teclado_usb`, em `threads.c`) lê os dispositivos `/dev/input/event*` e protege o estado do teclado com *mutex*. A lógica lê uma cópia por quadro com `ler_botoes_estado()`.
+- **Entrada:** uma thread dedicada lê os dispositivos `/dev/input/event*` e protege o estado do teclado com *mutex*. A lógica lê uma cópia por quadro com `ler_botoes_estado()`.
 - **Nova direção só com o gato parado:** enquanto `g_vel_tx`/`g_vel_ty` forem diferentes de zero, novas direções são descartadas.
 - **Passo de 8 px por quadro.** Se o próximo passo bateria em parede, o gato avança **pixel a pixel** até encostar e então para (`g_vel = 0`).
-- **Segurar `Espaço`:** o gato fica parado e troca para o segundo quadro de sprite. Nesse estado, projéteis das aves são destruídos em vez de matar, e, na fase 3, as patrulhas não causam dano (ver [5.3](#53-colisões)).
+- **Segurar `Espaço`:** o gato fica parado e troca para o segundo quadro de sprite. Nesse estado, projéteis das aves são destruídos em vez de matar.
 - **Orientação:** o *flip* do sprite acompanha a direção (`g_flip_jogador`).
-- **Rastro:** dois retângulos amarelos (polígonos 12 e 13) são desenhados atrás do gato enquanto ele desliza.
-- **Câmera por etapas:** cada mapa tem 320×480 px, maior que a tela lógica (320×240). O mapa é dividido em duas metades: **etapa inferior** (Y 240–479, onde o gato começa) e **etapa superior** (Y 0–239). Ao cruzar Y = 240, `atualizar_etapa_camera()` recarrega o background (`carregar_etapa_fundo_ram()`, com 76.800 `btile`) e os objetos são multiplexados por metade.
-
----
+- **Rastro:** dois retângulos amarelos são desenhados atrás do gato enquanto ele desliza.
+- **Câmera por etapas:** cada mapa tem 320×480 px, maior que a tela lógica (320×240). O mapa é dividido em duas metades: **etapa inferior** (Y 240–479, onde o gato começa) e **etapa superior** (Y 0–239). Ao cruzar Y = 240, `atualizar_etapa_camera()` recarrega o background (`carregar_fundo_etapa()`, com 76.800 `btile`) e os objetos são multiplexados por metade.
 
 # 5.3. Colisões
 
@@ -741,31 +794,29 @@ Todas as colisões usam **retângulos alinhados aos eixos (AABB)**, pela funçã
 
 | Colisão | Como funciona | Resultado |
 |---|---|---|
-| **Paredes** | Máscara de paredes de cada fase (`paredesF1/F2/F3`) convertida em grade de tiles 40×60 (`copiar_mascara_colisoes`); testa os 4 cantos do gato (`caixa_bate_em_parede`) | O gato para |
+| **Paredes** | Máscara de paredes de cada fase convertida em grade de tiles 40×60 (`copiar_mascara_colisoes`); testa os 4 cantos do gato | O gato para |
 | **Espinhos (fixos e temporários ativos)** | *Hitbox* reduzida do gato (12×12, deslocada 2 px) contra o triângulo (9×7 ou 7×9) | **Morte** |
 | **Projétil da ave** (3×3) | Colisão com o gato | **Morte**, ou o projétil é destruído se `Espaço` estiver segurado |
 | **BotDog** (80×16) | Colisão com o corpo inteiro | **Morte** |
-| **Patrulha** (16×16) | A patrulha avança 1 px por vez e para antes de sobrepor o gato, registrando o contato (`g_bateu_patrulha`) | **Morte** (na fase 3 não mata com `Espaço` segurado) |
+| **Patrulha** (16×16) | A patrulha avança 1 px por vez e para antes de sobrepor o gato, registrando o contato (`g_bateu_patrulha`) | **Morte** |
 | **Ave** (16×16) | Tratada como sólido: bloqueia o movimento | O gato para |
 | **Bug** (16×16) | Sobreposição com o gato | **Coleta** (+700) |
 | **Portal** (14×14) | Sobreposição com o gato | **Vitória** |
 
 Ao morrer, `animar_morte_gato()` exibe a animação de fumaça (7 quadros) antes da tela de derrota.
 Ao tocar em um elemento letal, o gato morre e aparece a tela de derrota.
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/derrota.gif">
     <br>
     <figcaption>
-      <i>Figura x - Tela de derrota.</i>
+      <i>Figura 7 - Tela de derrota.</i>
     </figcaption>
   </figure>
 </div>
 <br>
-
-
-
----
 
 # 5.4. Entidades do jogo, comportamento e animação
 
@@ -774,21 +825,19 @@ Ao tocar em um elemento letal, o gato morre e aparece a tela de derrota.
 | **Gato** (jogador) | Todas | Desliza até bater em parede; `Espaço` o segura parado | 3 skins × 2 quadros; *flip* conforme a direção; rastro amarelo em polígonos |
 | **Bug** | Todas (3 por fase) | Colecionável parado; vale +700 | 7 quadros de sprite; ao coletar, toca os quadros 1–6 (troca a cada 3 quadros) |
 | **Espinho fixo** | Fase 1 | Triângulo sempre ativo e letal | Polígono triangular com *flip* nas 4 direções |
-| **Espinho temporário** | Todas | Marcador no chão: ao ser tocado **arma** (1 s, pisca vermelho/amarelo), vira **espinho letal** (3 s) e depois volta a marcador | Retângulo vira triângulo (polígono com *flip*) |
-| **Patrulha** | Todas | Percorre um circuito retangular a 2 px/quadro, em sentido horário ou anti-horário; pode matar o gato | Sprite com *flip* conforme a direção. Vírus do SO (F1), *Warning* do Quartus (F2), Bolha/nuvem de pipeline (F3) |
+| **Espinho temporário** | Todas | Ao ser tocado **arma** (1 s, pisca vermelho/amarelo), vira **espinho letal** (3 s) e depois volta a ficar escondido | Retângulo vira triângulo (polígono com *flip*) |
+| **Patrulha** | Todas | Percorre um circuito retangular a 2 px/quadro, em sentido horário ou anti-horário; mata o gato | Sprite com *flip* conforme a direção. Vírus do SO (F1), *Warning* do Quartus (F2), Bolha de pipeline (F3) |
 | **Ave robô** | Fase 3 (3 aves) | Atira a cada 2 s (120 quadros) **só quando o gato está na mesma metade do mapa**; o tiro (3×3, 5 px/quadro) some ao bater em parede | 3 quadros (olho fechado, olho aberto no último 0,5 s e atirando), recuo ao disparar e **explosão** crescente de 8 quadros |
 | **BotDog** | Fases 2 e 3 (2 por fase) | Dispara quando o gato passa de determinada altura (`y_gatilho`) e atravessa a tela a 4 px/quadro, em um dos dois sentidos | Corpo de 5 sprites (80 px); 2 quadros alternando a cada 6 quadros |
 | **Portal** | Todas | Ao ser tocado, encerra a fase | Quadrado de 13×13 (polígono 0); ao entrar, animação de brilho (5 quadros) |
 
----
-
 # 5.5. As 3 fases
 
-Cada fase é um mapa de **320×480 px** (duas telas empilhadas), com fundo, máscara de paredes e layout próprios, definidos em `configurar_layout_fase()` (`mapa.c`).
+Cada fase é um mapa de **320×480 px** (duas telas empilhadas), com fundo, máscara de paredes e layout próprios, definidos em `configurar_layout_fase()`.
 
 | | **Fase 1** | **Fase 2** | **Fase 3** |
 |---|---|---|---|
-| **Tema do inimigo** | Vírus do SO | *Warning* do Quartus | Bolha/nuvem de pipeline |
+| **Tema do inimigo** | Vírus do SO | *Warning* do Quartus | Bolha de pipeline |
 | **Espinhos temporários** | 5 | 12 | 12 |
 | **Espinhos fixos** | 1 | — | — |
 | **Patrulhas** | 1 | 2 | 2 |
@@ -797,63 +846,74 @@ Cada fase é um mapa de **320×480 px** (duas telas empilhadas), com fundo, más
 | **Bugs** | 3 | 3 | 3 |
 | **Início do gato (x, y)** | (136, 463) | (152, 463) | (13, 463) |
 | **Portal (x, y)** | (89, 0) | (16, 21) | (154, 0) |
+
 Veja cada fase em funcionamento na placa:
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/fase1.gif">
     <br>
     <figcaption>
-      <i>Figura x - Fase 1 rodando.</i>
+      <i>Figura 8 - Fase 1 rodando.</i>
     </figcaption>
   </figure>
 </div>
+
 <br>
+
 <div align="center">
   <figure>
     <img src="resources/fase2.gif">
     <br>
     <figcaption>
-      <i>Figura x - Fase 2 rodando.</i>
+      <i>Figura 9 - Fase 2 rodando.</i>
     </figcaption>
   </figure>
 </div>
+
 <br>
+
 <div align="center">
   <figure>
     <img src="resources/fase3.gif">
     <br>
     <figcaption>
-      <i>Figura x - Fase 3 rodando.</i>
+      <i>Figura 10 - Fase 3 rodando.</i>
     </figcaption>
   </figure>
 </div>
 <br>
 
-**Progressão:** a fase 1 apresenta o deslizamento, os espinhos que armam e uma patrulha. A fase 2 acrescenta o BotDog e mais espinhos. A fase 3 reúne tudo e adiciona as aves que atiram. Além disso, a pose de `Espaço` passa a neutralizar patrulhas.
+**Progressão:** a fase 1 apresenta o deslizamento, os espinhos que armam e uma patrulha. A fase 2 acrescenta o BotDog e mais espinhos. A fase 3 reúne tudo e adiciona as aves que atiram.
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/protecao.gif">
     <br>
     <figcaption>
-      <i>Figura x - Jogador ativando proteção.</i>
+      <i>Figura 11 - Jogador ativando proteção.</i>
     </figcaption>
   </figure>
 </div>
 <br>
 
-**Evento especial da fase 3:** ao passar pelo ponto (144, 57), perto do portal, o **portal foge** para (235, 427) e o mapa troca de `mapa_fase3_1` para `mapa_fase3_2` (`portal_fugiu`). O jogador precisa voltar para alcançá-lo.
+**Evento Especial da Fase 3:** ao passar pelo ponto (144, 57), perto do portal, o portal "foge" para (235, 427). O jogador precisa voltar para alcançá-lo.
+
 Ao final de cada fase caso o jogador ganhe ele vai para a tela de vitória abaixo:
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/tela-de-vitoria.gif">
     <br>
     <figcaption>
-      <i>Figura x - Tela de vitória.</i>
+      <i>Figura 12 - Tela de vitória.</i>
     </figcaption>
   </figure>
 </div>
 <br>
----
 
 # 5.6. Como funciona a pontuação
 
@@ -868,20 +928,21 @@ Ao final de cada fase caso o jogador ganhe ele vai para a tela de vitória abaix
 
 - O cronômetro começa ao confirmar a tela de intro da fase e **não zera ao morrer**.
 - Ao morrer, os bugs da tentativa são **repostos** e a tela de derrota mostra os pontos da tentativa já com a multa.
-- A **pontuação total** é a soma das 3 fases (`g_pontos_totais`) e é exibida com 4 dígitos.
+- A **pontuação total** é a soma das 3 fases (`pontos_totais`) e é exibida com 4 dígitos.
+
 Ao concluir a fase 3, a pontuação é registrada e o Top 3 é exibido:
+
+<br>
 <div align="center">
   <figure>
     <img src="resources/rank.gif">
     <br>
     <figcaption>
-      <i>Figura x - Tela do Top 3 melhores pontuações.</i>
+      <i>Figura 13 - Tela do Top 3 melhores pontuações.</i>
     </figcaption>
   </figure>
 </div>
 <br>
-
----
 
 # 5.7. Persistência de dados para o ranking
 
@@ -897,22 +958,28 @@ typedef struct {
 
 | Etapa | Função (`metricas.c`) | O que faz |
 |---|---|---|
-| Início do programa | `carregar_ranking_arquivo()` | Lê o arquivo (`fread`), valida cada registro e ordena. Se não existir, o ranking começa vazio. Há também *fallback* para um arquivo de nome antigo |
+| Início do programa | `carregar_ranking_arquivo()` | Lê o arquivo , valida cada registro e ordena. Se não existir, o ranking começa vazio. Há também *fallback* para um arquivo de nome antigo |
 | Fim da 3ª fase | `registrar_no_ranking()` | Insere a pontuação na posição correta, empurrando as demais para baixo |
-| Após inserir | `salvar_ranking_arquivo()` | Reordena e grava os 3 registros (`fwrite`) |
+| Após inserir | `salvar_ranking_arquivo()` | Reordena e grava os 3 registros |
 | Tela de ranking | `carregar_tela_rank()` | Mostra posição, skin do gato e pontos (4 dígitos) de cada registro válido |
 
-**Validação:** um registro só é aceito se `valido == 1`, os pontos estiverem entre 0 e 99.999.999 e a skin entre 0 e 2. Isso protege contra arquivo corrompido.
+# 5.8. Conversão de Assets (PNG para `.h`)
 
----
+Como o coprocessador gráfico opera com paleta fixa de 8 bits no formato **RGB332** (`RRRGGGBB`) e não possui suporte nativo a decodificação de formatos comprimidos, todos os recursos visuais desenhados no **Piskel** e no **Gimp** precisam ser convertidos em matrizes estáticas de bytes em linguagem C (arquivos `.h` na pasta `include/`).
 
-# 5.8. Funções empregadas
+Para automatizar esse fluxo de trabalho, utilizou-se a inteligência artificial (**Google Gemini**) como ferramenta de apoio no desenvolvimento de **scripts conversores em Python** (com a biblioteca *Pillow*), responsáveis por processar as imagens `.png` e gerar diretamente os cabeçalhos prontos para compilação (`fase1.h`, `fase2.h`, `fase3.h`, `telas_background.h`, `mainCat.h`, `inimigos.h`, entre outros):
 
-#### Driver Assembly (`libAssembly.S`), usadas pelo jogo
+* **Conversão de Cores para RGB332:** Cada pixel `(R, G, B)` de 24 bits da imagem original é quantizado e empacotado em um único byte (`uint8_t`) conforme a máscara `(R & 0xE0) | ((G >> 3) & 0x1C) | (B >> 6)`, mapeando a transparência para `0x00`.
+* **Geração de Sprites (`16 × 16`) e Telas/Mapas (`320 × 240` / `320 × 480`):** Os scripts fatiavam folhas de sprites em blocos lineares de 256 bytes (compatíveis com o endereçamento da instrução `wrsp`) e exportavam cenários completos como vetores lineares indexados por `y * 320 + x` (compatíveis com `btile`).
+* **Extração Automática de Máscaras de Colisão:** Para os mapas das três fases, o conversor também analisava a imagem de colisão desenhada em grade `40 × 60` e gerava automaticamente as matrizes binárias (`0` = livre, `1` = parede) lidas pela função `copiar_mascara_colisoes()`.
+
+# 5.9. Funções empregadas
+
+## Driver Assembly (`libAssembly.S`), usadas pelo jogo
 
 As funções definidas no driver em Assembly são utilizadas pelo jogo em C para construção dos cenários e funcionamento do jogo. Cada função deve ser declarada como externa e com os parâmetros necessários, assim, ela realiza a rotina definida no Assembly. Vale destacar que as funções respeitam a convenção de chamadas padrão do ARM (AAPCS), o que garante que os parâmetros passados pelo C cheguem nos registradores corretos, ou seja, parâmetro 1 em `r0`,  parâmetro 2 em `r1`,  etc.
 
-#### Aplicação em C
+## Aplicação em C
 
 | Arquivo | Funções principais |
 |---|---|
@@ -921,7 +988,7 @@ As funções definidas no driver em Assembly são utilizadas pelo jogo em C para
 | `mapa.c` | `carregar_fase()`, `configurar_layout_fase()`, `carregar_fundo_etapa()`, `atualizar_etapa_camera()`, `atualizar_visuais_objetos_fase()`, `desenhar_ave_robo()`, `restaurar_cena_fase_atual()`, `copiar_mascara_colisoes()` |
 | `telas.c` | `carregar_*` e `atualizar_*` de cada tela, `animar_morte_gato()`, `animar_entrada_porta()`, `exibir_numero_4_digitos()` |
 | `threads.c` | `thread_teclado_usb()`, `ler_botoes_estado()`, `limpar_direcoes_teclado()` |
-| `metricas.c` | `metricas_registrar_frame()` (FPS, CPU, latência por comando), `carregar_ranking_arquivo()`, `salvar_ranking_arquivo()`, `registrar_no_ranking()` |
+| `metricas.c` | `metricas_registrar_frame()`, `carregar_ranking_arquivo()`, `salvar_ranking_arquivo()`, `registrar_no_ranking()` |
 
 </details>
 
@@ -1016,7 +1083,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
     <img src="resources/testeBackground.gif">
     <br>
     <figcaption>
-      <i>Figura x - Testes das Instruções de Background.</i>
+      <i>Figura 14 - Testes das Instruções de Background.</i>
     </figcaption>
   </figure>
 </div>
@@ -1032,7 +1099,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
     <img src="resources/testeSprites.gif">
     <br>
     <figcaption>
-      <i>Figura x - Testes das Instruções de Sprite.</i>
+      <i>Figura 15 - Testes das Instruções de Sprite.</i>
     </figcaption>
   </figure>
 </div>
@@ -1055,7 +1122,7 @@ As cenas 14 a 23 validaram visualmente no monitor VGA e por telemetria todos os 
     <img src="resources/testePoligonos.gif">
     <br>
     <figcaption>
-      <i>Figura x - Testes das Instruções de Polígonos.</i>
+      <i>Figura 16 - Testes das Instruções de Polígonos.</i>
     </figcaption>
   </figure>
 </div>
@@ -1077,7 +1144,7 @@ As duas últimas cenas submeteram o coprocessador à carga máxima combinada:
     <img src="resources/testeGeral.gif">
     <br>
     <figcaption>
-      <i>Figura x - Teste Geral e de Estresse.</i>
+      <i>Figura 17 - Teste Geral e de Estresse.</i>
     </figcaption>
   </figure>
 </div>
@@ -1159,6 +1226,12 @@ No planejamento inicial do projeto, a câmera do jogo deveria acompanhar continu
 * **Causa do Problema:** Como a memória de fundo passou a armazenar cada pixel individualmente ($320 \times 240 = 76.800\text{ posições}$) e não há barramento DMA entre a SDRAM do HPS e a FPGA, cada pixel modificado exige uma instrução `BTILE` transmitida individualmente pela ponte *Lightweight* AXI com *handshake* síncrono.
 * **Impacto Medido:** Os testes mostraram que redesenhar a tela inteira ($76.800\text{ BTILE}$) leva **$182,5\text{ ms}$** (~11 quadros perdidos), enquanto redesenhar metade da tela ($38.400\text{ BTILE}$) leva cerca de **$91\text{ ms}$** (~5,5 quadros). Tentar redesenhar faixas extensas do fundo enquanto o gato se movia fazia a *thread* principal do jogo ficar presa no laço de envio da `FIFO`, derrubando a taxa de quadros para menos de 30 FPS e causando travamentos visíveis nos controles.
 * **Solução Adotada:** Em vez de rolar e redesenhar o fundo continuamente a cada passo do jogador, o mapa das fases foi dividido em **seções estáticas de tela inteira** ($320 \times 240$ pixels). O fundo só é carregado na `ram_map` quando o jogador atravessa a borda superior de uma seção para a próxima. Além disso, em eventos dinâmicos dentro da mesma tela, o código substitui apenas o retângulo local onde a porta estava desenhada (pintura localizada de poucos pixels em vez de recarregar toda a tela), eliminando o travamento durante a ação.
+
+## 6.4.3. Limitações Identificadas
+
+1. **Transferência Unitária via MMIO para Atualização de Fundo:** Como toda escrita na memória de fundo (`ram_map`) depende do envio individual de instruções `BTILE` pela ponte *Lightweight* AXI (`~2,3 µs` por pixel), a repintura completa dos $76.800\text{ pixels}$ exige **$182,5\text{ ms}$** (~11 quadros de vídeo). Essa restrição limita trocas de tela inteira a aproximadamente $5,5\text{ Hz}$, inviabilizando a rolagem contínua de cenários texturizados em tempo real a 60 FPS.
+2. **Geração Lógica do Clock de 25 MHz:** O sinal `clk25` que alimenta o Compositor e o controlador VGA é derivado por um divisor lógico em flip-flop (`divisor_frequencia.v`) em vez de uma rede dedicada de relógio. Por não utilizar um bloco dedicado de síntese de clock, o sinal fica mais suscetível a variações de roteamento entre os domínios de 50 MHz e 25 MHz.
+3. **Comportamento Geométrico no Triângulo Escaleno e Dimensão Zero:** No rasterizador de polígonos, o triângulo escaleno (`tipo = 4`) utiliza os mesmos vértices de `flip = 0` quando configurado com `flip = 2`, oferecendo apenas três orientações distintas em vez de quatro. Adicionalmente, triângulos configurados com largura e altura simultaneamente nulas (`TAMPO(0,0)`) colapsam seus vértices em um único ponto e satisfazem a equação de borda para todos os pixels da tela, exigindo que a ocultação de figuras seja feita exclusivamente pelo bit `show = 0` da instrução `ATPO`.
 
 </details>
 
@@ -1288,7 +1361,7 @@ sudo su
 ---
 
 <details>
-<summary><h2 id="10-considerações-finais">10. Considerações Finais</h2></summary>
+<summary><h2 id="9-considerações-finais">9. Considerações Finais</h2></summary>
 O desenvolvimento do jogo concluiu o console digital dedicado: a aplicação em C, executada no ARM da DE1-SoC, compõe toda a cena exclusivamente por meio do driver em Assembly e do coprocessador gráfico em FPGA, sem desenhar um único pixel pela CPU. O resultado é um jogo completo, com máquina de estados (abertura, menu, escolha de skin, fases, pausa, vitória, derrota e ranking), três fases com dificuldade crescente, inimigos com comportamentos distintos, pontuação por desempenho e ranking persistente.
 
 Pelas limitações encontradas, as principais melhorias futuras são:
@@ -1296,21 +1369,18 @@ Pelas limitações encontradas, as principais melhorias futuras são:
 - **Suporte ao mouse:**  hoje o jogo é controlado apenas pelo teclado, e o enunciado também sugere o uso do mouse. (ex.: navegação nos menus e na pausa).
 - **Troca de etapa mais leve:** a mudança entre as metades do mapa regrava 76.800 pixels de background via `btile`. Uma instrução em lote, DMA ou uso do tilemap com `bscroll` reduziria esse custo.
 - **Carregamento de sprites em bloco:** cada padrão de sprite é enviado por 256 chamadas de `wrsp`. Uma escrita em rajada diminuiria a latência de carga das telas e fases.
-- **Sincronização com o vídeo:** o laço usa `usleep(16000)`; sincronizar pelo `frame_counter()` do hardware evitaria deriva entre a lógica e o quadro VGA.
 - **Ranking com nomes:** registrar iniciais do jogador (hoje só skin e pontos) e ampliar além do Top 3.
 - **Mais conteúdo:** novas fases e inimigos, e um editor de mapas para criar fases sem alterar o código.
 - **Limites de hardware:** o coprocessador suporta 32 sprites e 16 polígonos; ampliar esses limites permitiria cenas mais ricas sem multiplexação por metade de tela.
-- **Remover o atalho `P`** (depuração) da versão final e **automatizar os testes** de latência e taxa de atualização.
 
 </details>
 
 ---
 
 <details>
-<summary><h2 id="11-referencias-inspiracoes">11. Referências e Inspirações</h2></summary>
+<summary><h2 id="10-referencias-inspiracoes">10. Referências e Inspirações</h2></summary>
 
-
-<h3 id="111-referencias">11.1. Referências</h3>
+# 10.1. Referências
 
 - ARM LIMITED (2020). Coprocessor and Arm Custom Instructions Interface for Cortex-M33. Documentação Técnica de Arquitetura ARM. COTTRELL, R. (2004). FPGA Coprocessors: Hardware IP for Software Engineers. White Paper / Artigo Técnico, Altera Corporation, High Wycombe, UK.  
 - FRANCHINI, S. et al. (2005). A sliced coprocessor for native Clifford algebra operations. In IEEE International Workshop on Computer Architecture for Machine Perception (CAMP),, Palermo, Itália. IEEE.  
@@ -1327,7 +1397,7 @@ Pelas limitações encontradas, as principais melhorias futuras são:
 - YANG, S.; SCHAUMONT, P.; VERBAUWHEDE, I. (2005). Microcoded coprocessor for embedded secure biometric authentication systems. In Proceedings of the 3rd IEEE/ACM/IFIP International Conference on Hardware/Software Codesign and System Synthesis (CODES+ISSS), pp. 240-245, Jersey City, NJ. ACM/IEEE.  
 - YIU, J. (2010). The Definitive Guide to the ARM Cortex-M3. 2\. ed. Burlington, MA: Newnes / Elsevier.
 
-<h3 id="112-inspiracoes">11.2. Inspirações</h3>
+# 10.2. Inspirações
 
 - [Readme Template \- iuricode](https://github.com/iuricode/readme-template)  
 - [Awesome Repo Template \- MarketingPipeline](https://github.com/MarketingPipeline/Awesome-Repo-Template)  
