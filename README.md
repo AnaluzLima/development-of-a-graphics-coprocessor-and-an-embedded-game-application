@@ -1380,7 +1380,7 @@ Pelas limitações encontradas, as principais melhorias futuras são:
 <details>
 <summary><h2 id="10-referencias-inspiracoes">10. Referências e Inspirações</h2></summary>
 
-# 10.1. Referências
+# 10.1. Material de Estudo
 
 - ARM LIMITED (2020). Coprocessor and Arm Custom Instructions Interface for Cortex-M33. Documentação Técnica de Arquitetura ARM. COTTRELL, R. (2004). FPGA Coprocessors: Hardware IP for Software Engineers. White Paper / Artigo Técnico, Altera Corporation, High Wycombe, UK.  
 - FRANCHINI, S. et al. (2005). A sliced coprocessor for native Clifford algebra operations. In IEEE International Workshop on Computer Architecture for Machine Perception (CAMP),, Palermo, Itália. IEEE.  
